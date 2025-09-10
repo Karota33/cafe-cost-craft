@@ -11,7 +11,8 @@ import {
   BarChart3,
   ChefHat,
   Utensils,
-  Filter
+  Filter,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,15 @@ const navigationItems = [
     badge: "Escandallos",
     color: "bg-accent text-accent-foreground",
     roles: ['owner', 'admin', 'manager', 'kitchen_staff']
+  },
+  {
+    id: "users",
+    label: "Usuarios",
+    description: "Gestión equipo",
+    icon: Users,
+    badge: "Admin",
+    color: "bg-primary text-primary-foreground",
+    roles: ['owner', 'admin']
   },
   {
     id: "purchases",

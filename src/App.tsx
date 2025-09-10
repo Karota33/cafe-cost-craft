@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AuthPage } from "@/pages/AuthPage";
 import OrganizationsPage from "@/pages/OrganizationsPage";
+import UsersPage from "@/pages/UsersPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -41,6 +42,11 @@ const App = () => {
             <Route path="/organizations" element={
               <ProtectedRoute>
                 <OrganizationsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/users" element={
+              <ProtectedRoute>
+                <UsersPage />
               </ProtectedRoute>
             } />
             <Route path="/" element={

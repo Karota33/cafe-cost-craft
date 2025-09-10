@@ -7,6 +7,7 @@ import { ComparisonView } from "@/components/Views/ComparisonView";
 import { SuppliersView } from "@/components/Views/SuppliersView";
 import { RecipesView } from "@/components/Views/RecipesView";
 import { HRView } from "@/components/Views/HRView";
+import UsersPage from "@/pages/UsersPage";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
@@ -25,6 +26,8 @@ const Index = () => {
         return <SuppliersView />;
       case "recipes":
         return <RecipesView />;
+      case "users":
+        return <UsersPage />;
       case "hr":
         return <HRView />;
       case "purchases":
