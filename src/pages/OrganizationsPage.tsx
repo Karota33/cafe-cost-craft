@@ -6,6 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
   Building2, 
@@ -16,7 +33,9 @@ import {
   ChefHat,
   Utensils,
   Clock,
-  Users
+  Users,
+  Trash2,
+  MoreVertical
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -49,6 +68,7 @@ export const OrganizationsPage = () => {
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
+  const [deleting, setDeleting] = useState<string | null>(null);
   
   const { user, memberships, currentOrganization, setCurrentOrganization, refreshMemberships } = useAuth();
   const { toast } = useToast();
@@ -102,6 +122,51 @@ export const OrganizationsPage = () => {
       });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const deleteOrganization = async (organizationId: string, organizationName: string) => {
+    if (!user) return;
+
+    try {
+      setDeleting(organizationId);
+
+      // First delete all memberships for this organization
+      const { error: membershipError } = await supabase
+        .from('memberships')
+        .delete()
+        .eq('organization_id', organizationId);
+
+      if (membershipError) throw membershipError;
+
+      // Then delete the organization
+      const { error: orgError } = await supabase
+        .from('organizations')
+        .delete()
+        .eq('id', organizationId);
+
+      if (orgError) throw orgError;
+
+      toast({
+        title: "Empresa eliminada",
+        description: `${organizationName} ha sido eliminada exitosamente`,
+      });
+
+      // If the deleted organization was the current one, clear it
+      if (currentOrganization?.organization_id === organizationId) {
+        setCurrentOrganization(null);
+      }
+
+      await refreshMemberships();
+    } catch (error) {
+      console.error('Error deleting organization:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la empresa",
+        variant: "destructive"
+      });
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -184,22 +249,66 @@ export const OrganizationsPage = () => {
                 {memberships.map((membership) => (
                   <Card 
                     key={membership.id}
-                    className={`cursor-pointer transition-all hover:shadow-card ${
+                    className={`transition-all hover:shadow-card ${
                       currentOrganization?.organization_id === membership.organization_id ? 'ring-2 ring-primary' : ''
                     }`}
-                    onClick={() => { setCurrentOrganization(membership as any); navigate('/'); }}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
+                        <div 
+                          className="flex items-center gap-2 flex-1 cursor-pointer"
+                          onClick={() => { setCurrentOrganization(membership as any); navigate('/'); }}
+                        >
                           <Building2 className="h-5 w-5 text-primary" />
                           <h4 className="font-semibold truncate">{membership.organization.name}</h4>
                         </div>
-                        {currentOrganization?.organization_id === membership.organization_id && (
-                          <Badge variant="default" className="text-xs">Actual</Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {currentOrganization?.organization_id === membership.organization_id && (
+                            <Badge variant="default" className="text-xs">Actual</Badge>
+                          )}
+                          {membership.role === 'owner' && (
+                            <AlertDialog>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem className="text-destructive">
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Eliminar empresa
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Eliminar empresa?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acción eliminará permanentemente "{membership.organization.name}" y todos sus datos asociados (ingredientes, proveedores, recetas, etc.). Esta acción no se puede deshacer.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteOrganization(membership.organization_id, membership.organization.name)}
+                                    disabled={deleting === membership.organization_id}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    {deleting === membership.organization_id ? 'Eliminando...' : 'Eliminar'}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div 
+                        className="flex items-center gap-2 cursor-pointer"
+                        onClick={() => { setCurrentOrganization(membership as any); navigate('/'); }}
+                      >
                         {getRoleIcon(membership.role)}
                         <span className="text-sm text-muted-foreground">{getRoleLabel(membership.role)}</span>
                       </div>
