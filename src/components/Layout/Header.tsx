@@ -11,7 +11,7 @@ interface HeaderProps {
 
 export const Header = ({ className }: HeaderProps) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const { signOut } = useAuth();
+  const { signOut, currentOrganization } = useAuth();
 
   return (
     <Card className={cn(
@@ -26,16 +26,21 @@ export const Header = ({ className }: HeaderProps) => {
               <Coffee className="h-6 w-6 text-primary-foreground" />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg font-bold text-gradient">CafeteríaPWA</h1>
-              <p className="text-xs text-muted-foreground">Gestión Inteligente</p>
+              <h1 className="text-lg font-bold text-gradient">Santana</h1>
+              <p className="text-xs text-muted-foreground">Gestión Gastronómica</p>
             </div>
           </div>
 
-          {/* Single User Mode - No Organization Selector */}
-          <div className="flex-1 text-center">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              Modo Personal
-            </h2>
+          {/* Organization Selector */}
+          <div className="flex-1 max-w-md mx-4">
+            <div className="text-center">
+              <h2 className="text-sm font-medium text-foreground">
+                {currentOrganization?.organization?.name || "Seleccionar Empresa"}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {currentOrganization ? "Empresa activa" : "Sin empresa seleccionada"}
+              </p>
+            </div>
           </div>
 
           {/* Actions */}
