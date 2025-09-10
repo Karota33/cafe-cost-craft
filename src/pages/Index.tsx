@@ -4,6 +4,7 @@ import { Navigation } from "@/components/Layout/Navigation";
 import { UploadView } from "@/components/Views/UploadView";
 import { CatalogView } from "@/components/Views/CatalogView";
 import { ComparisonView } from "@/components/Views/ComparisonView";
+import { SuppliersView } from "@/components/Views/SuppliersView";
 
 const Index = () => {
   const [activeView, setActiveView] = useState("upload");
@@ -16,6 +17,8 @@ const Index = () => {
         return <CatalogView />;
       case "comparison":
         return <ComparisonView />;
+      case "suppliers":
+        return <SuppliersView />;
       case "recipes":
         return (
           <div className="text-center py-12">

@@ -14,7 +14,163 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ingredients: {
+        Row: {
+          allergens: Json | null
+          created_at: string
+          family: string | null
+          id: string
+          name: string
+          organization_id: string
+          subfamily: string | null
+          updated_at: string
+          yield_rate: number | null
+        }
+        Insert: {
+          allergens?: Json | null
+          created_at?: string
+          family?: string | null
+          id?: string
+          name: string
+          organization_id: string
+          subfamily?: string | null
+          updated_at?: string
+          yield_rate?: number | null
+        }
+        Update: {
+          allergens?: Json | null
+          created_at?: string
+          family?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+          subfamily?: string | null
+          updated_at?: string
+          yield_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          igic_default: number | null
+          name: string
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          igic_default?: number | null
+          name: string
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          igic_default?: number | null
+          name?: string
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      supplier_products: {
+        Row: {
+          area: string
+          created_at: string
+          family: string | null
+          id: string
+          ingredient_id: string
+          subfamily: string | null
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          family?: string | null
+          id?: string
+          ingredient_id: string
+          subfamily?: string | null
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          family?: string | null
+          id?: string
+          ingredient_id?: string
+          subfamily?: string | null
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_products_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          contact: string | null
+          created_at: string
+          id: string
+          lead_time_days: number | null
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          contact?: string | null
+          created_at?: string
+          id?: string
+          lead_time_days?: number | null
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          contact?: string | null
+          created_at?: string
+          id?: string
+          lead_time_days?: number | null
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

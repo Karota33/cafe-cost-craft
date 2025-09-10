@@ -41,7 +41,7 @@ export const SuppliersView = () => {
       const { data, error } = await supabase
         .from('suppliers')
         .select('id, name, contact, lead_time_days, created_at')
-        .order('name', { ascending: true });
+        .order('name', { ascending: true }) as any;
 
       if (error) {
         throw error;
