@@ -11,6 +11,7 @@ import { PriceAlerts } from "@/components/Catalog/PriceAlerts";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { 
   Package, 
   TrendingUp, 
@@ -23,6 +24,23 @@ import {
   Search
 } from "lucide-react";
 
+// Database row type (what comes from Supabase)
+type IngredientRowFromDB = {
+  id: string;
+  name: string;
+  category: string;
+  family: string;
+  unit_base: string;
+  best_price: number | null;
+  avg_price: number | null;
+  supplier_count: number;
+  last_price_update: string | null;
+  area: string;
+  price_trend: number;
+  allergens: Json[] | null; // <- JSON array from Supabase
+};
+
+// UI type (what the component expects)
 interface Ingredient {
   id: string;
   name: string;
@@ -33,10 +51,41 @@ interface Ingredient {
   avg_price: number | null;
   supplier_count: number;
   last_price_update: string | null;
-  allergens: string[];
+  allergens: string[]; // <- clean string array for UI
   area: 'kitchen' | 'dining' | 'both';
   price_trend: number;
 }
+
+// Safe conversion function
+const normalizeAllergens = (arr: Json[] | null | undefined): string[] => {
+  if (!Array.isArray(arr)) return [];
+  return arr
+    .map(x => (typeof x === "string" ? x : x == null ? "" : String(x)))
+    .filter(Boolean);
+};
+
+const normalizeArea = (area: string): 'kitchen' | 'dining' | 'both' => {
+  if (area === 'kitchen' || area === 'dining' || area === 'both') {
+    return area;
+  }
+  return 'both';
+};
+
+// Database row to UI ingredient mapper
+const toIngredient = (r: IngredientRowFromDB): Ingredient => ({
+  id: r.id,
+  name: r.name,
+  category: r.category,
+  family: r.family,
+  unit_base: r.unit_base,
+  best_price: r.best_price,
+  avg_price: r.avg_price,
+  supplier_count: r.supplier_count,
+  last_price_update: r.last_price_update,
+  area: normalizeArea(r.area),
+  price_trend: r.price_trend,
+  allergens: normalizeAllergens(r.allergens),
+});
 
 export const CatalogView = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -92,15 +141,9 @@ export const CatalogView = () => {
         return;
       }
 
-      setIngredients((data || []).map(item => ({
-        ...item,
-        allergens: Array.isArray(item.allergens) 
-          ? item.allergens.filter((a): a is string => typeof a === 'string')
-          : [],
-        area: (item.area === 'kitchen' || item.area === 'dining' || item.area === 'both') 
-          ? item.area as 'kitchen' | 'dining' | 'both'
-          : 'both'
-      })));
+      // Apply proper type conversion from DB format to UI format
+      const rows = data as IngredientRowFromDB[] || [];
+      setIngredients(rows.map(toIngredient));
     } catch (error) {
       console.error('Error:', error);
       toast({
