@@ -70,8 +70,8 @@ export const OrganizationsPage = () => {
       if (orgError) throw orgError;
 
       toast({
-        title: "Organización creada",
-        description: `${newOrgName} ha sido creada exitosamente`,
+        title: "Empresa creada",
+        description: `${newOrgName} ha sido añadida como cliente exitosamente`,
       });
 
       setNewOrgName('');
@@ -81,7 +81,7 @@ export const OrganizationsPage = () => {
       console.error('Error creating organization:', error);
       toast({
         title: "Error",
-        description: "No se pudo crear la organización",
+        description: "No se pudo crear la empresa",
         variant: "destructive"
       });
     } finally {
@@ -108,36 +108,36 @@ export const OrganizationsPage = () => {
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-gradient">Mis Organizaciones</h1>
-            <p className="text-muted-foreground mt-1">Gestiona tus empresas y restaurantes</p>
+            <h1 className="text-3xl font-bold text-gradient">Mis Empresas</h1>
+            <p className="text-muted-foreground mt-1">Gestiona todas las empresas gastronómicas de tus clientes</p>
           </div>
           <Button onClick={() => setShowForm(true)} disabled={showForm}>
             <Plus className="h-4 w-4 mr-2" />
-            Nueva Organización
+            Nueva Empresa
           </Button>
         </div>
 
         {showForm && (
           <Card>
             <CardHeader>
-              <CardTitle>Crear Nueva Organización</CardTitle>
-              <CardDescription>Crea una nueva empresa o establecimiento para gestionar</CardDescription>
+              <CardTitle>Añadir Nueva Empresa Cliente</CardTitle>
+              <CardDescription>Crea una nueva empresa gastronómica para gestionar como cliente</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <Label htmlFor="orgName">Nombre de la organización</Label>
+                  <Label htmlFor="orgName">Nombre de la empresa</Label>
                   <Input
                     id="orgName"
                     value={newOrgName}
                     onChange={(e) => setNewOrgName(e.target.value)}
-                    placeholder="Ej: Restaurante El Volcán"
+                    placeholder="Ej: Restaurante El Volcán, Cafetería Central..."
                     className="mt-1"
                   />
                 </div>
                 <div className="flex items-end gap-2">
                   <Button onClick={createOrganization} disabled={creating || !newOrgName.trim()}>
-                    {creating ? 'Creando...' : 'Crear'}
+                    {creating ? 'Creando...' : 'Crear Empresa'}
                   </Button>
                   <Button variant="outline" onClick={() => setShowForm(false)} disabled={creating}>
                     Cancelar
@@ -150,17 +150,17 @@ export const OrganizationsPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Tus Organizaciones ({memberships.length})</CardTitle>
+            <CardTitle>Empresas Clientes ({memberships.length})</CardTitle>
           </CardHeader>
           <CardContent>
             {memberships.length === 0 ? (
               <div className="text-center py-8">
                 <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No tienes organizaciones</h3>
-                <p className="text-muted-foreground mb-4">Crea tu primera organización</p>
+                <h3 className="text-lg font-semibold mb-2">No tienes empresas</h3>
+                <p className="text-muted-foreground mb-4">Crea tu primera empresa cliente para gestionar</p>
                 <Button onClick={() => setShowForm(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Crear Primera Organización
+                  Crear Primera Empresa
                 </Button>
               </div>
             ) : (
