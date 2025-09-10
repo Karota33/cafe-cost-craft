@@ -1,4 +1,4 @@
-import { createWorker } from 'tesseract.js';
+import { createWorker, type Worker } from 'tesseract.js';
 
 export interface ExtractedPriceData {
   text: string;
@@ -23,7 +23,7 @@ export interface OcrResult {
 }
 
 export class OcrService {
-  private static worker: Tesseract.Worker | null = null;
+  private static worker: Worker | null = null;
 
   static async initializeWorker(): Promise<void> {
     if (this.worker) return;

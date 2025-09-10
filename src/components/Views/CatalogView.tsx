@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FilterPanel } from "@/components/Catalog/FilterPanel";
 import { IngredientCard } from "@/components/Catalog/IngredientCard";
 import { ComparisonModal } from "@/components/Catalog/ComparisonModal";
@@ -17,7 +19,8 @@ import {
   Download,
   Grid,
   List,
-  Eye
+  Eye,
+  Search
 } from "lucide-react";
 
 interface Ingredient {
@@ -25,256 +28,189 @@ interface Ingredient {
   name: string;
   category: string;
   family: string;
-  unit: string;
-  avgPrice: number;
-  bestPrice: number;
-  priceChange: number;
-  suppliers: number;
-  lastUpdate: string;
+  unit_base: string;
+  best_price: number | null;
+  avg_price: number | null;
+  supplier_count: number;
+  last_price_update: string | null;
   allergens: string[];
   area: 'kitchen' | 'dining' | 'both';
+  price_trend: number;
 }
 
 export const CatalogView = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [suppliers, setSuppliers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedFamily, setSelectedFamily] = useState("all");
   const [selectedArea, setSelectedArea] = useState("all");
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
-  const [favorites, setFavorites] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [comparisonItems, setComparisonItems] = useState<string[]>([]);
   const [showComparison, setShowComparison] = useState(false);
-  
-  // Advanced filters
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
-  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
-  const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
-  const [priceChangeFilter, setPriceChangeFilter] = useState<'all' | 'increase' | 'decrease' | 'stable'>('all');
-  
+
   const { currentOrganization } = useAuth();
   const { toast } = useToast();
 
-  // Load real data from database
   useEffect(() => {
-    if (!currentOrganization) return;
-    
-    loadIngredients();
+    if (currentOrganization) {
+      fetchIngredients();
+    }
   }, [currentOrganization]);
 
-  const loadIngredients = async () => {
+  const fetchIngredients = async () => {
     try {
       setLoading(true);
       
-      const { data: ingredientsData, error } = await supabase
+      const { data, error } = await supabase
         .from('ingredients')
         .select(`
-          *,
-          supplier_products (
-            id,
-            supplier:suppliers (
-              id,
-              name
-            ),
-            supplier_prices (
-              pack_price,
-              pack_net_qty,
-              pack_unit,
-              is_active,
-              effective_from,
-              effective_to
-            )
-          )
+          id,
+          name,
+          category,
+          family,
+          unit_base,
+          best_price,
+          avg_price,
+          supplier_count,
+          last_price_update,
+          allergens,
+          area,
+          price_trend
         `)
-        .eq('organization_id', currentOrganization.organization_id)
+        .eq('organization_id', currentOrganization?.id)
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching ingredients:', error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los ingredientes",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      // Transform data to match our interface and extract suppliers
-      const allSuppliers = new Set<string>();
-      const transformedIngredients: Ingredient[] = (ingredientsData || []).map(ingredient => {
-        const activePrices = ingredient.supplier_products
-          ?.flatMap(sp => sp.supplier_prices || [])
-          .filter(price => price.is_active && (!price.effective_to || new Date(price.effective_to) > new Date()))
-          || [];
-
-        const prices = activePrices.map(price => price.pack_price / price.pack_net_qty);
-        const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
-        const bestPrice = prices.length > 0 ? Math.min(...prices) : 0;
-        
-        const uniqueSuppliers = new Set(
-          ingredient.supplier_products
-            ?.map(sp => sp.supplier?.name)
-            .filter(Boolean) || []
-        );
-
-        // Add suppliers to global set
-        uniqueSuppliers.forEach(name => allSuppliers.add(name));
-
-        return {
-          id: ingredient.id,
-          name: ingredient.name,
-          category: ingredient.category || 'Sin categoría',
-          family: ingredient.family || 'Sin familia',
-          unit: ingredient.unit_base || 'kg',
-          avgPrice,
-          bestPrice,
-          priceChange: Math.random() * 20 - 10, // TODO: Calculate real price change
-          suppliers: uniqueSuppliers.size,
-          lastUpdate: ingredient.updated_at,
-          allergens: Array.isArray(ingredient.allergens) ? ingredient.allergens as string[] : [],
-          area: ingredient.area as 'kitchen' | 'dining' | 'both'
-        };
-      });
-
-      setIngredients(transformedIngredients);
-      setSuppliers(Array.from(allSuppliers));
-      
+      setIngredients((data || []).map(item => ({
+        ...item,
+        allergens: Array.isArray(item.allergens) ? item.allergens : []
+      })));
     } catch (error) {
-      console.error('Error loading ingredients:', error);
+      console.error('Error:', error);
       toast({
         title: "Error",
-        description: "No se pudieron cargar los ingredientes",
-        variant: "destructive"
+        description: "Error inesperado al cargar datos",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const formatRelativeTime = (date: Date): string => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
-    
-    if (diffDays > 0) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
-    if (diffHours > 0) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
-    return 'Hace menos de 1 hora';
-  };
+  // Get unique categories and families from real data
+  const categories = [...new Set(ingredients.map(i => i.category).filter(Boolean))];
+  const families = [...new Set(ingredients.map(i => i.family).filter(Boolean))];
 
-
-
+  // Filter ingredients based on search and filters
   const filteredIngredients = ingredients.filter(ingredient => {
-    // Search term filter
-    const matchesSearch = ingredient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ingredient.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ingredient.family.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = ingredient.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || ingredient.category === selectedCategory;
+    const matchesFamily = selectedFamily === 'all' || ingredient.family === selectedFamily;
+    const matchesArea = selectedArea === 'all' || ingredient.area === selectedArea || ingredient.area === 'both';
     
-    // Category filter
-    const matchesCategory = selectedCategory === "all" || ingredient.category === selectedCategory;
-    
-    // Area filter
-    const matchesArea = selectedArea === "all" || ingredient.area === selectedArea || ingredient.area === 'both';
-    
-    // Price range filter
-    const matchesPrice = ingredient.avgPrice >= priceRange[0] && ingredient.avgPrice <= priceRange[1];
-    
-    // Allergens filter
-    const matchesAllergens = selectedAllergens.length === 0 || 
-      selectedAllergens.some(allergen => ingredient.allergens.includes(allergen));
-    
-    // Price change filter
-    const matchesPriceChange = priceChangeFilter === 'all' ||
-      (priceChangeFilter === 'increase' && ingredient.priceChange > 5) ||
-      (priceChangeFilter === 'decrease' && ingredient.priceChange < -5) ||
-      (priceChangeFilter === 'stable' && Math.abs(ingredient.priceChange) <= 5);
-
-    return matchesSearch && matchesCategory && matchesArea && matchesPrice && 
-           matchesAllergens && matchesPriceChange;
+    return matchesSearch && matchesCategory && matchesFamily && matchesArea;
   });
 
-  // Get unique values for filters
-  const availableCategories = [...new Set(ingredients.map(i => i.category))];
-  const availableSuppliers = suppliers;
-
-  const handleViewDetails = (id: string) => {
-    const ingredient = ingredients.find(i => i.id === id);
-    setSelectedIngredient(ingredient || null);
+  const handleAddToComparison = (ingredientId: string) => {
+    if (!comparisonItems.includes(ingredientId)) {
+      setComparisonItems([...comparisonItems, ingredientId]);
+    }
   };
 
-  const handleAddToFavorites = (id: string) => {
-    setFavorites(prev => 
-      prev.includes(id) 
-        ? prev.filter(fav => fav !== id)
-        : [...prev, id]
-    );
-    
-    toast({
-      title: favorites.includes(id) ? "Eliminado de favoritos" : "Agregado a favoritos",
-      description: "La lista de favoritos se actualizó"
-    });
+  const handleRemoveFromComparison = (ingredientId: string) => {
+    setComparisonItems(comparisonItems.filter(id => id !== ingredientId));
   };
 
-  const handleCompare = (id: string) => {
-    setComparisonItems(prev => {
-      const newItems = prev.includes(id) 
-        ? prev.filter(item => item !== id)
-        : [...prev, id];
-      
-      if (newItems.length > 0) {
-        setShowComparison(true);
-      }
-      
-      return newItems;
-    });
+  const formatUnitPrice = (price: number, unit: string) => `${price.toFixed(4)} €/${unit}`;
+  
+  const getAreaBadge = (area: string) => {
+    switch (area) {
+      case 'kitchen': return <Badge variant="secondary">Cocina</Badge>;
+      case 'dining': return <Badge variant="outline">Sala</Badge>;
+      default: return <Badge>Ambas</Badge>;
+    }
   };
 
-  const clearFilters = () => {
-    setSearchTerm("");
-    setSelectedCategory("all");
-    setSelectedArea("all");
-    setPriceRange([0, 100]);
-    setSelectedAllergens([]);
-    setSelectedSuppliers([]);
-    setPriceChangeFilter("all");
-  };
-
-  const handleExportCSV = () => {
-    const csvData = filteredIngredients.map(ingredient => ({
-      Nombre: ingredient.name,
-      Categoría: ingredient.category,
-      'Precio Promedio': ingredient.avgPrice,
-      'Mejor Precio': ingredient.bestPrice,
-      'Cambio de Precio': ingredient.priceChange,
-      Proveedores: ingredient.suppliers,
-      'Última Actualización': ingredient.lastUpdate,
-      Alérgenos: ingredient.allergens.join('; '),
-      Área: ingredient.area
-    }));
-
+  const exportCatalog = () => {
+    // Create CSV content
+    const headers = ['Nombre', 'Categoría', 'Familia', 'Área', 'Mejor Precio', 'Precio Promedio', 'Proveedores', 'Última Actualización'];
     const csvContent = [
-      Object.keys(csvData[0]).join(','),
-      ...csvData.map(row => Object.values(row).join(','))
+      headers.join(','),
+      ...filteredIngredients.map(ingredient => [
+        `"${ingredient.name}"`,
+        `"${ingredient.category || ''}"`,
+        `"${ingredient.family || ''}"`,
+        `"${ingredient.area}"`,
+        ingredient.best_price ? `${ingredient.best_price.toFixed(4)}` : '',
+        ingredient.avg_price ? `${ingredient.avg_price.toFixed(4)}` : '',
+        ingredient.supplier_count.toString(),
+        ingredient.last_price_update ? new Date(ingredient.last_price_update).toLocaleDateString() : ''
+      ].join(','))
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `catalogo-ingredientes-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `catalogo-ingredientes-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
     toast({
-      title: "Export completado",
-      description: "El catálogo se descargó correctamente"
+      title: "Catálogo exportado",
+      description: "El archivo CSV se ha descargado correctamente",
     });
   };
+
+  if (!currentOrganization) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">
+            Selecciona una empresa
+          </h3>
+          <p className="text-muted-foreground">
+            Debes seleccionar una empresa antes de poder ver el catálogo
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-muted rounded w-1/4 mb-4"></div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-64 bg-muted rounded-lg"></div>
-            ))}
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gradient">Catálogo de Ingredientes</h1>
+          <p className="text-muted-foreground mt-1">
+            Cargando ingredientes...
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-muted rounded w-1/2 mb-4"></div>
+                <div className="h-8 bg-muted rounded w-full"></div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
@@ -282,180 +218,238 @@ export const CatalogView = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gradient">Catálogo de Ingredientes</h1>
+          <h1 className="text-2xl font-bold text-gradient">Catálogo de Ingredientes</h1>
           <p className="text-muted-foreground mt-1">
-            Gestiona y compara precios de {ingredients.length} ingredientes
+            Gestiona y compara precios de ingredientes de todos tus proveedores
           </p>
         </div>
-        
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExportCSV}>
-            <Download className="h-4 w-4 mr-1" />
-            Export CSV
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+            size="sm"
+          >
+            {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
           </Button>
-          
-          <div className="flex border rounded-lg p-1">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
+          <Button onClick={exportCatalog} variant="outline" size="sm">
+            <Download className="h-4 w-4 mr-2" />
+            Exportar
+          </Button>
         </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <Package className="h-8 w-8 text-blue-500" />
+              <div>
+                <div className="text-2xl font-bold">{ingredients.length}</div>
+                <div className="text-sm text-muted-foreground">Total Ingredientes</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-8 w-8 text-green-500" />
+              <div>
+                <div className="text-2xl font-bold">{categories.length}</div>
+                <div className="text-sm text-muted-foreground">Categorías</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <Eye className="h-8 w-8 text-purple-500" />
+              <div>
+                <div className="text-2xl font-bold">{families.length}</div>
+                <div className="text-sm text-muted-foreground">Familias</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-8 w-8 text-orange-500" />
+              <div>
+                <div className="text-2xl font-bold">
+                  {ingredients.filter(i => !i.best_price).length}
+                </div>
+                <div className="text-sm text-muted-foreground">Sin Precios</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
-      <FilterPanel
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-        selectedArea={selectedArea}
-        onAreaChange={setSelectedArea}
-        priceRange={priceRange}
-        onPriceRangeChange={setPriceRange}
-        selectedAllergens={selectedAllergens}
-        onAllergensChange={setSelectedAllergens}
-        selectedSuppliers={selectedSuppliers}
-        onSuppliersChange={setSelectedSuppliers}
-        priceChangeFilter={priceChangeFilter}
-        onPriceChangeFilterChange={setPriceChangeFilter}
-        availableCategories={availableCategories}
-        availableSuppliers={availableSuppliers}
-        onClearFilters={clearFilters}
-      />
-
-      {/* Stats Cards */}
-      <div className="grid md:grid-cols-4 gap-6">
-        <Card className="p-6 text-center">
-          <Package className="h-8 w-8 mx-auto mb-2 text-primary" />
-          <p className="text-2xl font-bold">{filteredIngredients.length}</p>
-          <p className="text-sm text-muted-foreground">Ingredientes</p>
-        </Card>
-        
-        <Card className="p-6 text-center">
-          <TrendingDown className="h-8 w-8 mx-auto mb-2 text-success" />
-          <p className="text-2xl font-bold">€1.2k</p>
-          <p className="text-sm text-muted-foreground">Ahorro potencial</p>
-        </Card>
-        
-        <Card className="p-6 text-center">
-          <TrendingUp className="h-8 w-8 mx-auto mb-2 text-warning" />
-          <p className="text-2xl font-bold">+2.3%</p>
-          <p className="text-sm text-muted-foreground">Cambio promedio</p>
-        </Card>
-        
-        <Card className="p-6 text-center">
-          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-accent" />
-          <p className="text-2xl font-bold">{availableSuppliers.length}</p>
-          <p className="text-sm text-muted-foreground">Proveedores</p>
-        </Card>
-      </div>
-
-      {/* Comparison Bar */}
-      {comparisonItems.length > 0 && (
-        <Card className="p-4 bg-primary/5 border-primary/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-primary" />
-              <span className="font-medium">
-                {comparisonItems.length} ingrediente(s) seleccionados para comparar
-              </span>
+      <Card>
+        <CardContent className="p-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Buscar</label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar ingredientes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowComparison(true)}
-                disabled={comparisonItems.length === 0}
-              >
-                Ver Comparación
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setComparisonItems([])}
-              >
-                Limpiar
-              </Button>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoría</label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las categorías" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
+                  {categories.map(category => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Familia</label>
+              <Select value={selectedFamily} onValueChange={setSelectedFamily}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las familias" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las familias</SelectItem>
+                  {families.map(family => (
+                    <SelectItem key={family} value={family}>
+                      {family}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Área</label>
+              <Select value={selectedArea} onValueChange={setSelectedArea}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las áreas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las áreas</SelectItem>
+                  <SelectItem value="kitchen">Cocina</SelectItem>
+                  <SelectItem value="dining">Sala</SelectItem>
+                  <SelectItem value="both">Ambas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Resultados</label>
+              <div className="text-sm text-muted-foreground pt-2">
+                {filteredIngredients.length} de {ingredients.length} ingredientes
+              </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Comparison bar */}
+      {comparisonItems.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {comparisonItems.length} ingredientes seleccionados para comparar
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setComparisonItems([])}
+                >
+                  Limpiar
+                </Button>
+                <Button 
+                  size="sm"
+                  onClick={() => setShowComparison(true)}
+                >
+                  Comparar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
         </Card>
       )}
 
-      {/* Content Grid */}
-      <div className={`grid gap-6 ${
-        viewMode === 'grid' 
-          ? 'md:grid-cols-2 lg:grid-cols-3' 
-          : 'grid-cols-1'
-      }`}>
-        {filteredIngredients.map((ingredient) => (
-          <IngredientCard
-            key={ingredient.id}
-            ingredient={ingredient}
-            onViewDetails={handleViewDetails}
-            onAddToFavorites={handleAddToFavorites}
-            onCompare={handleCompare}
-            isFavorite={favorites.includes(ingredient.id)}
-            isSelected={comparisonItems.includes(ingredient.id)}
-          />
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {!loading && filteredIngredients.length === 0 && ingredients.length === 0 && (
-        <Card className="p-12 text-center">
-          <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <h3 className="text-lg font-semibold mb-2">No hay ingredientes en el catálogo</h3>
-          <p className="text-muted-foreground mb-4">
-            Comienza subiendo archivos de proveedores para crear tu catálogo de ingredientes
-          </p>
-          <Button variant="outline" onClick={() => window.location.hash = '#upload'}>
-            Subir archivos
-          </Button>
+      {/* Ingredients Grid/List */}
+      {filteredIngredients.length === 0 ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">
+              No se encontraron ingredientes
+            </h3>
+            <p className="text-muted-foreground">
+              {ingredients.length === 0 
+                ? "Aún no has importado ningún ingrediente. Ve a la sección de Ingesta para cargar tus primeros datos."
+                : "Prueba a cambiar los filtros para ver más resultados."
+              }
+            </p>
+          </CardContent>
         </Card>
-      )}
-      
-      {/* No Results State */}
-      {!loading && filteredIngredients.length === 0 && ingredients.length > 0 && (
-        <Card className="p-12 text-center">
-          <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <h3 className="text-lg font-semibold mb-2">No se encontraron ingredientes</h3>
-          <p className="text-muted-foreground mb-4">
-            Prueba ajustando los filtros o la búsqueda
-          </p>
-          <Button variant="outline" onClick={clearFilters}>
-            Limpiar filtros
-          </Button>
-        </Card>
+      ) : (
+        <div className={viewMode === 'grid' ? 
+          "grid gap-4 md:grid-cols-2 lg:grid-cols-3" : 
+          "space-y-4"
+        }>
+          {filteredIngredients.map((ingredient) => (
+            <Card key={ingredient.id} className="cursor-pointer hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold">{ingredient.name}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {ingredient.category || 'Sin categoría'} • {ingredient.family || 'Sin familia'}
+                    </p>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="text-lg font-bold text-green-600">
+                        {ingredient.best_price ? formatUnitPrice(ingredient.best_price, ingredient.unit_base) : 'Sin precio'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {ingredient.supplier_count} proveedores
+                      </div>
+                    </div>
+                    {getAreaBadge(ingredient.area)}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
 
-      {/* Price Alerts Sidebar */}
-      {currentOrganization && (
-        <PriceAlerts 
-          organizationId={currentOrganization.id}
-          ingredientId={selectedIngredient?.id}
-        />
-      )}
-
-      {/* Comparison Modal */}
-      <ComparisonModal
-        ingredients={comparisonItems}
-        open={showComparison}
-        onClose={() => setShowComparison(false)}
-      />
+      {/* Future: Add modals here */}
     </div>
   );
 };
