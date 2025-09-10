@@ -18,6 +18,7 @@ import {
   Trash2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UploadedFile {
   id: string;
@@ -45,8 +46,18 @@ export const UploadView = () => {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const { currentOrganization } = useAuth();
 
   const handleFiles = useCallback(async (fileList: FileList) => {
+    if (!currentOrganization) {
+      toast({
+        title: "Error",
+        description: "Debes seleccionar una empresa antes de subir archivos",
+        variant: "destructive"
+      });
+      return;
+    }
+
     const newFiles: UploadedFile[] = [];
     
     for (let i = 0; i < fileList.length; i++) {
@@ -89,30 +100,26 @@ export const UploadView = () => {
           f.id === uploadFile.id ? { ...f, progress: 25 } : f
         ));
 
-        const fileName = `${uploadFile.id}-${file.name}`;
+        const fileName = `${currentOrganization.organization_id}/${uploadFile.id}-${file.name}`;
         const { data, error } = await supabase.storage
-          .from('uploads')
+          .from('file-uploads')
           .upload(fileName, file);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Storage error:', error);
+          throw new Error(`Error al subir archivo: ${error.message}`);
+        }
 
         // Update progress
         setFiles(prev => prev.map(f => 
           f.id === uploadFile.id ? { ...f, progress: 75 } : f
         ));
 
-        // Get demo organization ID
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('id')
-          .eq('name', 'DRAGO COFFEE - Demo')
-          .single();
-
         // Record file upload in database
         const { error: dbError } = await supabase
           .from('file_uploads')
           .insert({
-            organization_id: orgData?.id || '',
+            organization_id: currentOrganization.organization_id,
             file_name: file.name,
             file_type: getFileTypeLabel(file.type),
             file_size: file.size,
@@ -120,7 +127,10 @@ export const UploadView = () => {
             processing_status: 'pending'
           });
 
-        if (dbError) throw dbError;
+        if (dbError) {
+          console.error('Database error:', dbError);
+          throw new Error(`Error al guardar en base de datos: ${dbError.message}`);
+        }
 
         // Complete upload
         setFiles(prev => prev.map(f => 
@@ -148,27 +158,35 @@ export const UploadView = () => {
         });
 
       } catch (error) {
-        console.error('Upload error:', error);
+        console.error('Upload error for file:', file.name, error);
+        
+        let errorMessage = 'Error desconocido';
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === 'object' && error !== null && 'message' in error) {
+          errorMessage = String((error as any).message);
+        }
+        
         setFiles(prev => prev.map(f => 
           f.id === uploadFile.id 
             ? { 
                 ...f, 
                 status: 'failed', 
-                error: error instanceof Error ? error.message : 'Error desconocido' 
+                error: errorMessage
               }
             : f
         ));
         
         toast({
           title: "Error al subir archivo",
-          description: `No se pudo subir ${file.name}`,
+          description: `No se pudo subir ${file.name}: ${errorMessage}`,
           variant: "destructive"
         });
       } finally {
         setUploading(false);
       }
     }
-  }, [toast]);
+  }, [toast, currentOrganization]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -216,6 +234,30 @@ export const UploadView = () => {
         return <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />;
     }
   };
+
+  if (!currentOrganization) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gradient">Ingesta de Archivos</h1>
+          <p className="text-muted-foreground mt-1">
+            Sube archivos CSV, Excel, PDF o imágenes para extraer datos de proveedores
+          </p>
+        </div>
+        <Card>
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">
+              Selecciona una empresa
+            </h3>
+            <p className="text-muted-foreground">
+              Debes seleccionar una empresa antes de poder subir archivos
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
