@@ -480,41 +480,153 @@ export type Database = {
         }
         Relationships: []
       }
+      recipe_cost_history: {
+        Row: {
+          change_percentage: number | null
+          change_reason: string | null
+          changed_ingredients: Json | null
+          created_at: string | null
+          id: string
+          new_cost: number
+          previous_cost: number | null
+          recipe_id: string
+        }
+        Insert: {
+          change_percentage?: number | null
+          change_reason?: string | null
+          changed_ingredients?: Json | null
+          created_at?: string | null
+          id?: string
+          new_cost: number
+          previous_cost?: number | null
+          recipe_id: string
+        }
+        Update: {
+          change_percentage?: number | null
+          change_reason?: string | null
+          changed_ingredients?: Json | null
+          created_at?: string | null
+          id?: string
+          new_cost?: number
+          previous_cost?: number | null
+          recipe_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_cost_history_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipe_costs: {
+        Row: {
+          calculated_at: string | null
+          cost_per_serving: number | null
+          created_at: string | null
+          id: string
+          ingredient_cost: number | null
+          labor_cost: number | null
+          overhead_cost: number | null
+          packaging_cost: number | null
+          recipe_id: string
+          total_cost: number
+          updated_at: string | null
+        }
+        Insert: {
+          calculated_at?: string | null
+          cost_per_serving?: number | null
+          created_at?: string | null
+          id?: string
+          ingredient_cost?: number | null
+          labor_cost?: number | null
+          overhead_cost?: number | null
+          packaging_cost?: number | null
+          recipe_id: string
+          total_cost: number
+          updated_at?: string | null
+        }
+        Update: {
+          calculated_at?: string | null
+          cost_per_serving?: number | null
+          created_at?: string | null
+          id?: string
+          ingredient_cost?: number | null
+          labor_cost?: number | null
+          overhead_cost?: number | null
+          packaging_cost?: number | null
+          recipe_id?: string
+          total_cost?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_costs_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recipe_lines: {
         Row: {
           component_recipe_id: string | null
           component_type: Database["public"]["Enums"]["component_type"]
+          cooking_method: string | null
+          cost_per_unit: number | null
           created_at: string
           id: string
           ingredient_id: string | null
+          is_optional: boolean | null
           loss_pct: number | null
+          preparation_method: string | null
           quantity: number
           recipe_id: string
           step_order: number
+          temperature_celsius: number | null
+          timing_notes: string | null
+          total_line_cost: number | null
           unit: string
         }
         Insert: {
           component_recipe_id?: string | null
           component_type: Database["public"]["Enums"]["component_type"]
+          cooking_method?: string | null
+          cost_per_unit?: number | null
           created_at?: string
           id?: string
           ingredient_id?: string | null
+          is_optional?: boolean | null
           loss_pct?: number | null
+          preparation_method?: string | null
           quantity: number
           recipe_id: string
           step_order: number
+          temperature_celsius?: number | null
+          timing_notes?: string | null
+          total_line_cost?: number | null
           unit: string
         }
         Update: {
           component_recipe_id?: string | null
           component_type?: Database["public"]["Enums"]["component_type"]
+          cooking_method?: string | null
+          cost_per_unit?: number | null
           created_at?: string
           id?: string
           ingredient_id?: string | null
+          is_optional?: boolean | null
           loss_pct?: number | null
+          preparation_method?: string | null
           quantity?: number
           recipe_id?: string
           step_order?: number
+          temperature_celsius?: number | null
+          timing_notes?: string | null
+          total_line_cost?: number | null
           unit?: string
         }
         Relationships: [
@@ -543,43 +655,73 @@ export type Database = {
       }
       recipes: {
         Row: {
+          allergen_info: Json | null
+          chef_notes: string | null
+          cooking_time_minutes: number | null
           created_at: string
+          difficulty_level: string | null
+          food_cost_percentage: number | null
           id: string
+          instructions: string | null
+          margin_percentage: number | null
           name: string
+          nutrition_info: Json | null
           organization_id: string
+          prep_time_minutes: number | null
           process_description: string | null
           servings: number | null
           status: Database["public"]["Enums"]["recipe_status"] | null
           target_batch_qty: number
           target_batch_unit: string
+          target_price: number | null
           type: Database["public"]["Enums"]["recipe_type"]
           updated_at: string
           version: number | null
         }
         Insert: {
+          allergen_info?: Json | null
+          chef_notes?: string | null
+          cooking_time_minutes?: number | null
           created_at?: string
+          difficulty_level?: string | null
+          food_cost_percentage?: number | null
           id?: string
+          instructions?: string | null
+          margin_percentage?: number | null
           name: string
+          nutrition_info?: Json | null
           organization_id: string
+          prep_time_minutes?: number | null
           process_description?: string | null
           servings?: number | null
           status?: Database["public"]["Enums"]["recipe_status"] | null
           target_batch_qty: number
           target_batch_unit: string
+          target_price?: number | null
           type: Database["public"]["Enums"]["recipe_type"]
           updated_at?: string
           version?: number | null
         }
         Update: {
+          allergen_info?: Json | null
+          chef_notes?: string | null
+          cooking_time_minutes?: number | null
           created_at?: string
+          difficulty_level?: string | null
+          food_cost_percentage?: number | null
           id?: string
+          instructions?: string | null
+          margin_percentage?: number | null
           name?: string
+          nutrition_info?: Json | null
           organization_id?: string
+          prep_time_minutes?: number | null
           process_description?: string | null
           servings?: number | null
           status?: Database["public"]["Enums"]["recipe_status"] | null
           target_batch_qty?: number
           target_batch_unit?: string
+          target_price?: number | null
           type?: Database["public"]["Enums"]["recipe_type"]
           updated_at?: string
           version?: number | null
@@ -808,6 +950,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calculate_recipe_cost: {
+        Args: { p_recipe_id: string }
+        Returns: {
+          calculated_at: string | null
+          cost_per_serving: number | null
+          created_at: string | null
+          id: string
+          ingredient_cost: number | null
+          labor_cost: number | null
+          overhead_cost: number | null
+          packaging_cost: number | null
+          recipe_id: string
+          total_cost: number
+          updated_at: string | null
+        }
+      }
       create_org_with_owner: {
         Args: { p_igic?: number; p_name: string; p_timezone?: string }
         Returns: {
