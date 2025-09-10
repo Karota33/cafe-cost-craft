@@ -19,6 +19,7 @@ import {
   Users
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const getRoleIcon = (role: string) => {
   switch (role) {
@@ -51,6 +52,7 @@ export const OrganizationsPage = () => {
   
   const { user, memberships, currentOrganization, setCurrentOrganization, refreshMemberships } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const createOrganization = async () => {
     if (!user || !newOrgName.trim()) return;
@@ -67,8 +69,9 @@ export const OrganizationsPage = () => {
         })
         .single();
 
-      if (orgError) throw orgError;
+      if (orgError || !orgData) throw orgError || new Error('No se pudo crear la empresa');
 
+      const orgId = (orgData as any).id;
       toast({
         title: "Empresa creada",
         description: `${newOrgName} ha sido añadida como cliente exitosamente`,
@@ -77,6 +80,19 @@ export const OrganizationsPage = () => {
       setNewOrgName('');
       setShowForm(false);
       await refreshMemberships();
+
+      // Seleccionar automáticamente la empresa creada y navegar al dashboard
+      const { data: createdMembership } = await supabase
+        .from('memberships')
+        .select('id, organization_id, role, is_active, organization:organizations(id, name)')
+        .eq('user_id', user.id)
+        .eq('organization_id', orgId)
+        .maybeSingle();
+
+      if (createdMembership) {
+        setCurrentOrganization(createdMembership as any);
+        navigate('/');
+      }
     } catch (error) {
       console.error('Error creating organization:', error);
       toast({
@@ -171,7 +187,7 @@ export const OrganizationsPage = () => {
                     className={`cursor-pointer transition-all hover:shadow-card ${
                       currentOrganization?.organization_id === membership.organization_id ? 'ring-2 ring-primary' : ''
                     }`}
-                    onClick={() => setCurrentOrganization(membership)}
+                    onClick={() => { setCurrentOrganization(membership as any); navigate('/'); }}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
