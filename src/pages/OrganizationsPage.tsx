@@ -211,3 +211,5 @@ export const OrganizationsPage = () => {
     </div>
   );
 };
+
+export default OrganizationsPage;
