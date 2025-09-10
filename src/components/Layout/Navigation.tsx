@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   Package, 
   ShoppingCart, 
@@ -27,15 +28,17 @@ const navigationItems = [
     description: "Subir archivos",
     icon: Upload,
     badge: "CSV/PDF/Excel",
-    color: "bg-success text-success-foreground"
+    color: "bg-success text-success-foreground",
+    roles: ['owner', 'admin', 'manager']
   },
   {
     id: "catalog",
     label: "Catálogo",
     description: "Ingredientes",
     icon: Package,
-    badge: "245 items",
-    color: "bg-primary text-primary-foreground"
+    badge: "Productos",
+    color: "bg-primary text-primary-foreground",
+    roles: ['owner', 'admin', 'manager', 'kitchen_staff', 'hall_staff']
   },
   {
     id: "comparison",
@@ -43,7 +46,8 @@ const navigationItems = [
     description: "Precios",
     icon: BarChart3,
     badge: "Live",
-    color: "bg-warning text-warning-foreground"
+    color: "bg-warning text-warning-foreground",
+    roles: ['owner', 'admin', 'manager']
   },
   {
     id: "suppliers",
@@ -51,15 +55,17 @@ const navigationItems = [
     description: "Red comercial",
     icon: ShoppingCart,
     badge: "Gestión",
-    color: "bg-secondary text-secondary-foreground"
+    color: "bg-secondary text-secondary-foreground",
+    roles: ['owner', 'admin', 'manager']
   },
   {
     id: "recipes",
     label: "Recetas",
     description: "PREP/PLATE",
     icon: Calculator,
-    badge: "34 activas",
-    color: "bg-accent text-accent-foreground"
+    badge: "Escandallos",
+    color: "bg-accent text-accent-foreground",
+    roles: ['owner', 'admin', 'manager', 'kitchen_staff']
   },
   {
     id: "purchases",
@@ -67,7 +73,17 @@ const navigationItems = [
     description: "Por área",
     icon: ShoppingCart,
     badge: "Cocina/Sala",
-    color: "bg-secondary text-secondary-foreground"
+    color: "bg-secondary text-secondary-foreground",
+    roles: ['owner', 'admin', 'manager', 'kitchen_staff', 'hall_staff']
+  },
+  {
+    id: "hr",
+    label: "RRHH",
+    description: "Personal",
+    icon: Filter,
+    badge: "Horarios",
+    color: "bg-primary text-primary-foreground",
+    roles: ['owner', 'admin', 'hr_manager', 'manager']
   }
 ];
 
@@ -79,6 +95,11 @@ const areaFilters = [
 
 export const Navigation = ({ activeView, onViewChange, className }: NavigationProps) => {
   const [activeArea, setActiveArea] = useState("all");
+  const { currentOrganization, hasRole } = useAuth();
+
+  const visibleItems = navigationItems.filter(item => 
+    !item.roles || currentOrganization && hasRole(item.roles)
+  );
 
   return (
     <Card className={cn("p-4", className)}>
@@ -104,7 +125,7 @@ export const Navigation = ({ activeView, onViewChange, className }: NavigationPr
       {/* Main Navigation */}
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground mb-3">Módulos</h3>
-        {navigationItems.map((item) => (
+        {visibleItems.map((item) => (
           <Button
             key={item.id}
             variant={activeView === item.id ? "default" : "ghost"}

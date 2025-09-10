@@ -6,9 +6,12 @@ import { CatalogView } from "@/components/Views/CatalogView";
 import { ComparisonView } from "@/components/Views/ComparisonView";
 import { SuppliersView } from "@/components/Views/SuppliersView";
 import { RecipesView } from "@/components/Views/RecipesView";
+import { HRView } from "@/components/Views/HRView";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
-  const [activeView, setActiveView] = useState("upload");
+  const { currentOrganization } = useAuth();
+  const [activeView, setActiveView] = useState("catalog");
 
   const renderActiveView = () => {
     switch (activeView) {
@@ -22,6 +25,8 @@ const Index = () => {
         return <SuppliersView />;
       case "recipes":
         return <RecipesView />;
+      case "hr":
+        return <HRView />;
       case "purchases":
         return (
           <div className="text-center py-12">
@@ -30,9 +35,19 @@ const Index = () => {
           </div>
         );
       default:
-        return <UploadView />;
+        return <CatalogView />;
     }
   };
+
+  // Redirect to organizations if no current organization
+  if (!currentOrganization) {
+    window.location.href = '/organizations';
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
