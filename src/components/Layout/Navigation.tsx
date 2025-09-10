@@ -46,6 +46,14 @@ const navigationItems = [
     color: "bg-warning text-warning-foreground"
   },
   {
+    id: "suppliers",
+    label: "Proveedores",
+    description: "Red comercial",
+    icon: ShoppingCart,
+    badge: "Gestión",
+    color: "bg-secondary text-secondary-foreground"
+  },
+  {
     id: "recipes",
     label: "Recetas",
     description: "PREP/PLATE",
@@ -56,9 +64,9 @@ const navigationItems = [
   {
     id: "purchases",
     label: "Compras",
-    description: "Proveedores",
+    description: "Por área",
     icon: ShoppingCart,
-    badge: "Por área",
+    badge: "Cocina/Sala",
     color: "bg-secondary text-secondary-foreground"
   }
 ];
