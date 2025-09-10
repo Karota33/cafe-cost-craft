@@ -42,15 +42,7 @@ const Index = () => {
     }
   };
 
-  // Redirect to organizations if no current organization
-  if (!currentOrganization) {
-    window.location.href = '/organizations';
-    return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // Single user mode - no organization check needed
 
   return (
     <div className="min-h-screen bg-gradient-subtle">

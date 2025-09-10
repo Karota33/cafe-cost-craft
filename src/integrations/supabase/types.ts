@@ -977,6 +977,10 @@ export type Database = {
           updated_at: string
         }
       }
+      is_app_owner: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       component_type: "ingredient" | "recipe"
