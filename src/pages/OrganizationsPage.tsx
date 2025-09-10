@@ -58,29 +58,16 @@ export const OrganizationsPage = () => {
     try {
       setCreating(true);
 
+      // Use RPC function to create organization and membership atomically
       const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .insert([{
-          name: newOrgName.trim(),
-          igic_default: 0.070,
-          timezone: 'Atlantic/Canary'
-        }])
-        .select()
+        .rpc('create_org_with_owner', {
+          p_name: newOrgName.trim(),
+          p_timezone: 'Atlantic/Canary',
+          p_igic: 0.070
+        })
         .single();
 
       if (orgError) throw orgError;
-
-      const { error: membershipError } = await supabase
-        .from('memberships')
-        .insert([{
-          user_id: user.id,
-          organization_id: orgData.id,
-          role: 'owner',
-          is_active: true,
-          accepted_at: new Date().toISOString()
-        }]);
-
-      if (membershipError) throw membershipError;
 
       toast({
         title: "Organización creada",

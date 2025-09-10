@@ -676,7 +676,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_org_with_owner: {
+        Args: { p_igic?: number; p_name: string; p_timezone?: string }
+        Returns: {
+          created_at: string
+          id: string
+          igic_default: number | null
+          name: string
+          timezone: string | null
+          updated_at: string
+        }
+      }
     }
     Enums: {
       component_type: "ingredient" | "recipe"
