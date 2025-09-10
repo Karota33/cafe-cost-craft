@@ -1,27 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Coffee, Menu, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface Organization {
-  id: string;
-  name: string;
-  igic: number;
-}
-
-const mockOrganizations: Organization[] = [
-  { id: "1", name: "Café Central", igic: 7 },
-  { id: "2", name: "Demo Organization", igic: 7 },
-];
 
 interface HeaderProps {
   className?: string;
 }
 
 export const Header = ({ className }: HeaderProps) => {
-  const [selectedOrg, setSelectedOrg] = useState<string>("1");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   return (
@@ -42,25 +29,11 @@ export const Header = ({ className }: HeaderProps) => {
             </div>
           </div>
 
-          {/* Organization Selector */}
-          <div className="flex-1 max-w-xs mx-4">
-            <Select value={selectedOrg} onValueChange={setSelectedOrg}>
-              <SelectTrigger className="h-10 bg-background/50">
-                <SelectValue placeholder="Seleccionar organización" />
-              </SelectTrigger>
-              <SelectContent>
-                {mockOrganizations.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{org.name}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        IGIC {org.igic}%
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Single User Mode - No Organization Selector */}
+          <div className="flex-1 text-center">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              Modo Personal
+            </h2>
           </div>
 
           {/* Actions */}
