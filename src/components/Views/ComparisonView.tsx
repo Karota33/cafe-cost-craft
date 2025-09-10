@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,9 @@ import {
   Calendar
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { exportComparisonCSV } from "@/utils/pdfExport";
 
 interface SupplierPrice {
   id: string;
@@ -32,93 +35,97 @@ interface SupplierPrice {
   area: 'kitchen' | 'dining' | 'both';
 }
 
-const mockPrices: SupplierPrice[] = [
-  {
-    id: "1",
-    ingredientName: "Café en grano Arábica Premium",
-    supplierName: "Distribuidora Café SL",
-    packDescription: "Saco 25kg",
-    packSize: "25 kg",
-    unitPrice: 16.20,
-    packPrice: 405.00,
-    discount: 5,
-    igic: 7,
-    finalPrice: 16.20,
-    lastUpdate: "2024-01-10",
-    isBest: true,
-    area: "both"
-  },
-  {
-    id: "2",
-    ingredientName: "Café en grano Arábica Premium", 
-    supplierName: "Café Express Canarias",
-    packDescription: "Caja 4x5kg",
-    packSize: "20 kg",
-    unitPrice: 18.50,
-    packPrice: 370.00,
-    discount: 0,
-    igic: 7,
-    finalPrice: 18.50,
-    lastUpdate: "2024-01-09",
-    isBest: false,
-    area: "both"
-  },
-  {
-    id: "3",
-    ingredientName: "Leche UHT Entera",
-    supplierName: "Lácteos Canarios",
-    packDescription: "Pack 12x1L",
-    packSize: "12 L",
-    unitPrice: 0.82,
-    packPrice: 9.84,
-    discount: 8,
-    igic: 4,
-    finalPrice: 0.82,
-    lastUpdate: "2024-01-10",
-    isBest: true,
-    area: "both"
-  },
-  {
-    id: "4",
-    ingredientName: "Leche UHT Entera",
-    supplierName: "Central Lechera",
-    packDescription: "Caja 6x2L",
-    packSize: "12 L", 
-    unitPrice: 0.95,
-    packPrice: 11.40,
-    discount: 0,
-    igic: 4,
-    finalPrice: 0.95,
-    lastUpdate: "2024-01-08",
-    isBest: false,
-    area: "dining"
-  },
-  {
-    id: "5",
-    ingredientName: "Azúcar Blanco Refinado",
-    supplierName: "Azucarera Canaria",
-    packDescription: "Saco 50kg",
-    packSize: "50 kg",
-    unitPrice: 1.15,
-    packPrice: 57.50,
-    discount: 3,
-    igic: 7,
-    finalPrice: 1.15,
-    lastUpdate: "2024-01-09",
-    isBest: true,
-    area: "kitchen"
-  }
-];
-
 export const ComparisonView = () => {
+  const [prices, setPrices] = useState<SupplierPrice[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const { currentOrganization } = useAuth();
+
+  useEffect(() => {
+    if (currentOrganization) {
+      fetchPrices();
+    }
+  }, [currentOrganization]);
+
+  const fetchPrices = async () => {
+    if (!currentOrganization) return;
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('supplier_prices')
+        .select(`
+          *,
+          supplier_products!inner(
+            *,
+            ingredients!inner(name, unit_base, area),
+            suppliers!inner(name)
+          )
+        `)
+        .eq('supplier_products.suppliers.organization_id', currentOrganization.organization_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching prices:', error);
+        return;
+      }
+
+      const formattedPrices: SupplierPrice[] = data?.map(price => {
+        const ingredient = price.supplier_products.ingredients;
+        const supplier = price.supplier_products.suppliers;
+        const unitPrice = price.pack_price / price.pack_net_qty;
+        const finalPrice = unitPrice * (1 - price.discount_pct / 100) * (1 + price.tax_pct / 100);
+
+        return {
+          id: price.id,
+          ingredientName: ingredient.name,
+          supplierName: supplier.name,
+          packDescription: price.pack_description,
+          packSize: `${price.pack_net_qty} ${price.pack_unit}`,
+          unitPrice: finalPrice,
+          packPrice: price.pack_price,
+          discount: price.discount_pct,
+          igic: price.tax_pct,
+          finalPrice,
+          lastUpdate: price.updated_at.split('T')[0],
+          isBest: false, // Will be calculated
+          area: ingredient.area as 'kitchen' | 'dining' | 'both'
+        };
+      }) || [];
+
+      // Calculate best prices per ingredient
+      const ingredientGroups: { [key: string]: SupplierPrice[] } = {};
+      formattedPrices.forEach(price => {
+        if (!ingredientGroups[price.ingredientName]) {
+          ingredientGroups[price.ingredientName] = [];
+        }
+        ingredientGroups[price.ingredientName].push(price);
+      });
+
+      // Mark best prices
+      Object.values(ingredientGroups).forEach(group => {
+        const bestPrice = Math.min(...group.map(p => p.finalPrice));
+        group.forEach(price => {
+          price.isBest = price.finalPrice === bestPrice;
+        });
+      });
+
+      setPrices(formattedPrices);
+    } catch (error) {
+      console.error('Error fetching prices:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIngredient, setSelectedIngredient] = useState("Todos");
   const [selectedArea, setSelectedArea] = useState("Todas");
 
-  const ingredients = [...new Set(mockPrices.map(p => p.ingredientName))];
+  const ingredients = [...new Set(prices.map(p => p.ingredientName))];
   const areas = ["Todas", "Cocina", "Sala", "Mixto"];
 
-  const filteredPrices = mockPrices.filter(price => {
+  const filteredPrices = prices.filter(price => {
     const matchesSearch = price.ingredientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          price.supplierName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesIngredient = selectedIngredient === "Todos" || price.ingredientName === selectedIngredient;
@@ -146,15 +153,15 @@ export const ComparisonView = () => {
 
   // Group by ingredient for statistics
   const ingredientStats = ingredients.map(ingredient => {
-    const prices = mockPrices.filter(p => p.ingredientName === ingredient);
-    const bestPrice = Math.min(...prices.map(p => p.finalPrice));
-    const worstPrice = Math.max(...prices.map(p => p.finalPrice));
-    const avgPrice = prices.reduce((sum, p) => sum + p.finalPrice, 0) / prices.length;
+    const ingredientPrices = prices.filter(p => p.ingredientName === ingredient);
+    const bestPrice = Math.min(...ingredientPrices.map(p => p.finalPrice));
+    const worstPrice = Math.max(...ingredientPrices.map(p => p.finalPrice));
+    const avgPrice = ingredientPrices.reduce((sum, p) => sum + p.finalPrice, 0) / ingredientPrices.length;
     const savings = ((worstPrice - bestPrice) / worstPrice) * 100;
     
     return {
       ingredient,
-      suppliers: prices.length,
+      suppliers: ingredientPrices.length,
       bestPrice,
       worstPrice,
       avgPrice,
@@ -244,9 +251,9 @@ export const ComparisonView = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" className="gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => exportComparisonCSV(filteredPrices)}>
               <Download className="h-4 w-4" />
-              Exportar
+              Exportar CSV
             </Button>
           </div>
         </CardContent>

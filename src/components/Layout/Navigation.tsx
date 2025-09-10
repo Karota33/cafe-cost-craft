@@ -24,6 +24,15 @@ interface NavigationProps {
 
 const navigationItems = [
   {
+    id: "dashboard",
+    label: "Dashboard",
+    description: "Resumen",
+    icon: BarChart3,
+    badge: "Inicio",
+    color: "bg-primary text-primary-foreground",
+    roles: ['owner', 'admin', 'manager', 'kitchen_staff', 'hall_staff', 'hr_manager']
+  },
+  {
     id: "upload",
     label: "Ingesta",
     description: "Subir archivos",

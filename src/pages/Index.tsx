@@ -9,10 +9,11 @@ import { RecipesView } from "@/components/Views/RecipesView";
 import { HRView } from "@/components/Views/HRView";
 import UsersPage from "@/pages/UsersPage";
 import { useAuth } from "@/contexts/AuthContext";
+import { DashboardMetrics } from "@/components/Dashboard/DashboardMetrics";
 
 const Index = () => {
   const { currentOrganization } = useAuth();
-  const [activeView, setActiveView] = useState("catalog");
+  const [activeView, setActiveView] = useState("dashboard");
 
   const renderActiveView = () => {
     switch (activeView) {
@@ -30,6 +31,18 @@ const Index = () => {
         return <UsersPage />;
       case "hr":
         return <HRView />;
+      case "dashboard":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gradient">Dashboard</h1>
+              <p className="text-muted-foreground mt-1">
+                Resumen y métricas clave de {currentOrganization?.organization?.name}
+              </p>
+            </div>
+            <DashboardMetrics />
+          </div>
+        );
       case "purchases":
         return (
           <div className="text-center py-12">

@@ -183,7 +183,7 @@ export const CatalogView = () => {
 
   // Get unique values for filters
   const availableCategories = [...new Set(ingredients.map(i => i.category))];
-  const availableSuppliers = ['Proveedor A', 'Proveedor B', 'Mayorista Central']; // Mock data
+  const availableSuppliers = suppliers;
 
   const handleViewDetails = (id: string) => {
     const ingredient = ingredients.find(i => i.id === id);

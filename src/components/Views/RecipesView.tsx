@@ -19,6 +19,10 @@ import {
   Euro
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { RecipeEditor } from "@/components/Recipes/RecipeEditor";
+import { downloadRecipePDF } from "@/utils/pdfExport";
+import { useToast } from "@/hooks/use-toast";
 
 interface Recipe {
   id: string;
@@ -33,60 +37,146 @@ interface Recipe {
   updated_at: string;
 }
 
-const mockRecipes: Recipe[] = [
-  {
-    id: "1",
-    name: "Masa Base Para Pizza",
-    type: "PREP",
-    target_batch_qty: 2.5,
-    target_batch_unit: "kg",
-    servings: null,
-    status: "active",
-    version: 3,
-    created_at: "2024-01-15T10:00:00Z",
-    updated_at: "2024-01-20T14:30:00Z"
-  },
-  {
-    id: "2", 
-    name: "Pizza Margarita",
-    type: "PLATE",
-    target_batch_qty: 1,
-    target_batch_unit: "ud",
-    servings: 1,
-    status: "active",
-    version: 2,
-    created_at: "2024-01-16T11:00:00Z",
-    updated_at: "2024-01-18T16:15:00Z"
-  },
-  {
-    id: "3",
-    name: "Salsa de Tomate Casera",
-    type: "PREP", 
-    target_batch_qty: 1,
-    target_batch_unit: "L",
-    servings: null,
-    status: "active",
-    version: 1,
-    created_at: "2024-01-10T09:30:00Z",
-    updated_at: "2024-01-10T09:30:00Z"
-  },
-  {
-    id: "4",
-    name: "Café con Leche Especial",
-    type: "PLATE",
-    target_batch_qty: 1,
-    target_batch_unit: "taza",
-    servings: 1,
-    status: "draft",
-    version: 1,
-    created_at: "2024-01-22T08:15:00Z",
-    updated_at: "2024-01-22T08:15:00Z"
-  }
-];
-
 export const RecipesView = () => {
-  const [recipes, setRecipes] = useState<Recipe[]>(mockRecipes);
-  const [loading, setLoading] = useState(false);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingRecipe, setEditingRecipe] = useState<string | undefined>();
+
+  const { currentOrganization } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (currentOrganization) {
+      fetchRecipes();
+    }
+  }, [currentOrganization]);
+
+  const fetchRecipes = async () => {
+    if (!currentOrganization) return;
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .eq('organization_id', currentOrganization.organization_id)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching recipes:', error);
+        return;
+      }
+
+      setRecipes(data || []);
+    } catch (error) {
+      console.error('Error fetching recipes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewRecipe = () => {
+    setEditingRecipe(undefined);
+    setShowEditor(true);
+  };
+
+  const handleEditRecipe = (recipeId: string) => {
+    setEditingRecipe(recipeId);
+    setShowEditor(true);
+  };
+
+  const handleSaveRecipe = () => {
+    setShowEditor(false);
+    setEditingRecipe(undefined);
+    fetchRecipes(); // Refresh list
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditor(false);
+    setEditingRecipe(undefined);
+  };
+
+  const handleExportPDF = async (recipeId: string) => {
+    if (!currentOrganization) return;
+
+    try {
+      // Fetch complete recipe data
+      const { data: recipe, error: recipeError } = await supabase
+        .from('recipes')
+        .select('*')
+        .eq('id', recipeId)
+        .single();
+
+      if (recipeError) throw recipeError;
+
+      const { data: lines, error: linesError } = await supabase
+        .from('recipe_lines')
+        .select(`
+          *,
+          ingredients(name, avg_price)
+        `)
+        .eq('recipe_id', recipeId)
+        .order('step_order');
+
+      if (linesError) throw linesError;
+
+      const { data: costs, error: costsError } = await supabase
+        .from('recipe_costs')
+        .select('*')
+        .eq('recipe_id', recipeId)
+        .maybeSingle();
+
+      // Prepare data for PDF
+      const ingredients = lines?.map(line => ({
+        name: line.ingredients?.name || 'Ingrediente desconocido',
+        quantity: line.quantity,
+        unit: line.unit,
+        cost: (line.quantity * (line.ingredients?.avg_price || 0)) * (1 - line.loss_pct / 100),
+        loss_pct: line.loss_pct
+      })) || [];
+
+      const pdfData = {
+        name: recipe.name,
+        type: recipe.type,
+        target_batch_qty: recipe.target_batch_qty,
+        target_batch_unit: recipe.target_batch_unit,
+        servings: recipe.servings,
+        prep_time_minutes: recipe.prep_time_minutes,
+        cooking_time_minutes: recipe.cooking_time_minutes,
+        instructions: recipe.instructions || '',
+        chef_notes: recipe.chef_notes,
+        allergen_info: Array.isArray(recipe.allergen_info) ? recipe.allergen_info : [],
+        ingredients,
+        costs: costs || {
+          ingredient_cost: 0,
+          labor_cost: 0,
+          overhead_cost: 0,
+          total_cost: 0,
+          cost_per_serving: 0
+        },
+        food_cost_percentage: recipe.target_price && costs?.total_cost 
+          ? (costs.total_cost / recipe.target_price) * 100 
+          : undefined,
+        target_price: recipe.target_price
+      };
+
+      await downloadRecipePDF(pdfData);
+      
+      toast({
+        title: "PDF generado",
+        description: "La ficha técnica se ha abierto en una nueva ventana",
+      });
+
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo generar el PDF",
+        variant: "destructive"
+      });
+    }
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -139,6 +229,16 @@ export const RecipesView = () => {
     return `${qty} ${unit}`;
   };
 
+  if (showEditor) {
+    return (
+      <RecipeEditor
+        recipeId={editingRecipe}
+        onSave={handleSaveRecipe}
+        onCancel={handleCancelEdit}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -149,7 +249,7 @@ export const RecipesView = () => {
             Gestiona recetas PREP y PLATE con cálculo automático de costes
           </p>
         </div>
-        <Button className="w-full sm:w-auto">
+        <Button className="w-full sm:w-auto" onClick={handleNewRecipe}>
           <Plus className="h-4 w-4 mr-2" />
           Nueva Receta
         </Button>
@@ -315,13 +415,13 @@ export const RecipesView = () => {
                         <Button size="sm" variant="ghost" title="Ver receta">
                           <Eye className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" title="Editar">
+                        <Button size="sm" variant="ghost" title="Editar" onClick={() => handleEditRecipe(recipe.id)}>
                           <Edit3 className="h-3 w-3" />
                         </Button>
                         <Button size="sm" variant="ghost" title="Duplicar">
                           <Copy className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="ghost" title="Exportar PDF">
+                        <Button size="sm" variant="ghost" title="Exportar PDF" onClick={() => handleExportPDF(recipe.id)}>
                           <FileDown className="h-3 w-3" />
                         </Button>
                       </div>
