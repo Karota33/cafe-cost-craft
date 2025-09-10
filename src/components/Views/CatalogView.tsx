@@ -94,7 +94,12 @@ export const CatalogView = () => {
 
       setIngredients((data || []).map(item => ({
         ...item,
-        allergens: Array.isArray(item.allergens) ? item.allergens : []
+        allergens: Array.isArray(item.allergens) 
+          ? item.allergens.filter((a): a is string => typeof a === 'string')
+          : [],
+        area: (item.area === 'kitchen' || item.area === 'dining' || item.area === 'both') 
+          ? item.area as 'kitchen' | 'dining' | 'both'
+          : 'both'
       })));
     } catch (error) {
       console.error('Error:', error);
