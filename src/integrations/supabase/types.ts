@@ -136,11 +136,59 @@ export type Database = {
           },
         ]
       }
+      file_import_mappings: {
+        Row: {
+          column_mappings: Json
+          created_at: string | null
+          file_upload_id: string
+          id: string
+          is_confirmed: boolean | null
+          normalization_rules: Json
+          organization_id: string
+          source_columns: Json
+          updated_at: string | null
+          validation_results: Json
+        }
+        Insert: {
+          column_mappings?: Json
+          created_at?: string | null
+          file_upload_id: string
+          id?: string
+          is_confirmed?: boolean | null
+          normalization_rules?: Json
+          organization_id: string
+          source_columns?: Json
+          updated_at?: string | null
+          validation_results?: Json
+        }
+        Update: {
+          column_mappings?: Json
+          created_at?: string | null
+          file_upload_id?: string
+          id?: string
+          is_confirmed?: boolean | null
+          normalization_rules?: Json
+          organization_id?: string
+          source_columns?: Json
+          updated_at?: string | null
+          validation_results?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_import_mappings_file_upload_id_fkey"
+            columns: ["file_upload_id"]
+            isOneToOne: false
+            referencedRelation: "file_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_uploads: {
         Row: {
           created_at: string
           error_message: string | null
           extracted_records: number | null
+          extraction_data: Json | null
           failed_records: number | null
           file_name: string
           file_path: string
@@ -152,11 +200,13 @@ export type Database = {
           processed_at: string | null
           processed_records: number | null
           processing_status: string | null
+          validation_errors: Json | null
         }
         Insert: {
           created_at?: string
           error_message?: string | null
           extracted_records?: number | null
+          extraction_data?: Json | null
           failed_records?: number | null
           file_name: string
           file_path: string
@@ -168,11 +218,13 @@ export type Database = {
           processed_at?: string | null
           processed_records?: number | null
           processing_status?: string | null
+          validation_errors?: Json | null
         }
         Update: {
           created_at?: string
           error_message?: string | null
           extracted_records?: number | null
+          extraction_data?: Json | null
           failed_records?: number | null
           file_name?: string
           file_path?: string
@@ -184,6 +236,7 @@ export type Database = {
           processed_at?: string | null
           processed_records?: number | null
           processing_status?: string | null
+          validation_errors?: Json | null
         }
         Relationships: [
           {
@@ -207,6 +260,8 @@ export type Database = {
           allergens: Json | null
           area: string | null
           avg_price: number | null
+          best_price: number | null
+          best_price_supplier_id: string | null
           category: string | null
           created_at: string
           family: string | null
@@ -214,6 +269,7 @@ export type Database = {
           last_price_update: string | null
           name: string
           organization_id: string
+          price_trend: number | null
           subfamily: string | null
           supplier_count: number | null
           unit_base: string | null
@@ -224,6 +280,8 @@ export type Database = {
           allergens?: Json | null
           area?: string | null
           avg_price?: number | null
+          best_price?: number | null
+          best_price_supplier_id?: string | null
           category?: string | null
           created_at?: string
           family?: string | null
@@ -231,6 +289,7 @@ export type Database = {
           last_price_update?: string | null
           name: string
           organization_id: string
+          price_trend?: number | null
           subfamily?: string | null
           supplier_count?: number | null
           unit_base?: string | null
@@ -241,6 +300,8 @@ export type Database = {
           allergens?: Json | null
           area?: string | null
           avg_price?: number | null
+          best_price?: number | null
+          best_price_supplier_id?: string | null
           category?: string | null
           created_at?: string
           family?: string | null
@@ -248,6 +309,7 @@ export type Database = {
           last_price_update?: string | null
           name?: string
           organization_id?: string
+          price_trend?: number | null
           subfamily?: string | null
           supplier_count?: number | null
           unit_base?: string | null

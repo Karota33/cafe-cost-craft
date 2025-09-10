@@ -132,78 +132,15 @@ serve(async (req) => {
 });
 
 async function createSampleData(fileName: string, organizationId: string): Promise<FileProcessingResult> {
-  const sampleIngredients: ProcessedIngredient[] = [
-    {
-      name: 'Café en grano arábica premium',
-      category: 'Bebidas',
-      unit_base: 'kg',
-      area: 'both',
-      supplier_name: 'Café Express Canarias',
-      pack_description: 'Saco 1kg premium',
-      pack_size: '1 kg',
-      pack_price: 18.50,
-      unit_price: 18.50,
-      discount: 0,
-      igic: 7,
-      allergens: []
-    },
-    {
-      name: 'Leche entera UHT',
-      category: 'Lácteos',
-      unit_base: 'l',
-      area: 'kitchen',
-      supplier_name: 'Lácteos Canarios',
-      pack_description: 'Pack 12x1L',
-      pack_size: '12 l',
-      pack_price: 9.84,
-      unit_price: 0.82,
-      discount: 0,
-      igic: 4,
-      allergens: ['lactosa']
-    },
-    {
-      name: 'Azúcar blanco refinado',
-      category: 'Endulzantes',
-      unit_base: 'kg',
-      area: 'both',
-      supplier_name: 'Azucarera Canaria',
-      pack_description: 'Saco 25kg',
-      pack_size: '25 kg',
-      pack_price: 28.75,
-      unit_price: 1.15,
-      discount: 0,
-      igic: 7,
-      allergens: []
-    },
-    {
-      name: 'Pan de molde integral',
-      category: 'Panadería',
-      unit_base: 'kg',
-      area: 'kitchen',
-      supplier_name: 'Panificadora Local',
-      pack_description: 'Bolsa 750g',
-      pack_size: '0.75 kg',
-      pack_price: 2.40,
-      unit_price: 3.20,
-      discount: 0,
-      igic: 4,
-      allergens: ['gluten']
-    },
-    {
-      name: 'Aceite de oliva virgen extra',
-      category: 'Aceites',
-      unit_base: 'l',
-      area: 'kitchen',
-      supplier_name: 'Oleícola Canaria',
-      pack_description: 'Garrafa 5L',
-      pack_size: '5 l',
-      pack_price: 22.50,
-      unit_price: 4.50,
-      discount: 5,
-      igic: 7,
-      allergens: []
-    }
-  ];
+  // Remove sample data - no more mocks
+  console.log('File processing not supported for this format, creating empty result');
+  
+  return {
+    success: true,
+    processed_records: 0,
+    failed_records: 0,
+    extracted_data: []
+  };
 
   console.log('Creating sample data with', sampleIngredients.length, 'ingredients');
 
@@ -497,7 +434,7 @@ async function saveIngredientData(ingredient: ProcessedIngredient, organizationI
         pack_unit: packUnit,
         pack_net_qty: packSize,
         pack_price: ingredient.pack_price,
-        discount_pct: ingredient.discount || 0,
+        discount_pct: Math.min(100, Math.max(0, ingredient.discount || 0)),
         tax_pct: ingredient.igic || 7,
         is_active: true,
         effective_from: new Date().toISOString()
