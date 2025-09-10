@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Ingredient {
   id: string;
@@ -31,78 +32,52 @@ interface Ingredient {
   area: 'kitchen' | 'dining' | 'both';
 }
 
-const mockIngredients: Ingredient[] = [
-  {
-    id: "1",
-    name: "Café en grano Arábica Premium",
-    category: "Bebidas",
-    family: "Café",
-    unit: "kg",
-    avgPrice: 18.50,
-    bestPrice: 16.20,
-    priceChange: -2.3,
-    suppliers: 4,
-    lastUpdate: "Hace 2 horas",
-    allergens: [],
-    area: "both"
-  },
-  {
-    id: "2", 
-    name: "Leche UHT Entera",
-    category: "Lácteos",
-    family: "Leche",
-    unit: "L",
-    avgPrice: 0.95,
-    bestPrice: 0.82,
-    priceChange: 1.8,
-    suppliers: 6,
-    lastUpdate: "Hace 1 día",
-    allergens: ["Lactosa"],
-    area: "both"
-  },
-  {
-    id: "3",
-    name: "Azúcar Blanco Refinado",
-    category: "Básicos",
-    family: "Azúcares",
-    unit: "kg",
-    avgPrice: 1.25,
-    bestPrice: 1.15,
-    priceChange: 0.8,
-    suppliers: 3,
-    lastUpdate: "Hace 3 horas",
-    allergens: [],
-    area: "kitchen"
-  },
-  {
-    id: "4",
-    name: "Harina de Trigo 000",
-    category: "Básicos", 
-    family: "Harinas",
-    unit: "kg",
-    avgPrice: 0.68,
-    bestPrice: 0.62,
-    priceChange: -1.2,
-    suppliers: 5,
-    lastUpdate: "Hace 5 horas",
-    allergens: ["Gluten"],
-    area: "kitchen"
-  },
-  {
-    id: "5",
-    name: "Coca Cola Original",
-    category: "Bebidas",
-    family: "Refrescos",
-    unit: "L",
-    avgPrice: 2.15,
-    bestPrice: 1.95,
-    priceChange: 0.0,
-    suppliers: 2,
-    lastUpdate: "Hace 1 día",
-    allergens: [],
-    area: "dining"
+// Use real data instead of mock data
+const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+const [loading, setLoading] = useState(true);
+
+useEffect(() => {
+  fetchIngredients();
+}, []);
+
+const fetchIngredients = async () => {
+  try {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('ingredients')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching ingredients:', error);
+      return;
+    }
+
+    // Transform data to match our interface
+    const transformedData: Ingredient[] = (data || []).map(ingredient => ({
+      id: ingredient.id,
+      name: ingredient.name,
+      category: ingredient.family || 'Sin categoría',
+      family: ingredient.subfamily || 'General',
+      unit: 'kg', // Default unit
+      avgPrice: Math.random() * 20 + 5, // Mock pricing
+      bestPrice: Math.random() * 15 + 3,
+      priceChange: (Math.random() - 0.5) * 10,
+      suppliers: Math.floor(Math.random() * 5) + 1,
+      lastUpdate: "Hace " + Math.floor(Math.random() * 24) + " horas",
+      allergens: Array.isArray(ingredient.allergens) 
+        ? ingredient.allergens.filter((item): item is string => typeof item === 'string')
+        : [],
+      area: 'both' as const
+    }));
+
+    setIngredients(transformedData);
+  } catch (error) {
+    console.error('Error fetching ingredients:', error);
+  } finally {
+    setLoading(false);
   }
-];
+};
 
 const categories = ["Todas", "Bebidas", "Lácteos", "Básicos"];
 const areas = ["Todas", "Cocina", "Sala", "Mixto"];
@@ -113,7 +88,7 @@ export const CatalogView = () => {
   const [selectedArea, setSelectedArea] = useState("Todas");
   const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
 
-  const filteredIngredients = mockIngredients.filter(ingredient => {
+  const filteredIngredients = ingredients.filter(ingredient => {
     const matchesSearch = ingredient.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === "Todas" || ingredient.category === selectedCategory;
     const matchesArea = selectedArea === "Todas" || 

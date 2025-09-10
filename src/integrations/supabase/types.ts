@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      file_uploads: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type: string
+          id: string
+          organization_id: string
+          processed_at: string | null
+          processed_records: number | null
+          processing_status: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          file_type: string
+          id?: string
+          organization_id: string
+          processed_at?: string | null
+          processed_records?: number | null
+          processing_status?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          organization_id?: string
+          processed_at?: string | null
+          processed_records?: number | null
+          processing_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_uploads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ingredients: {
         Row: {
           allergens: Json | null
@@ -84,6 +134,176 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      recipe_lines: {
+        Row: {
+          component_recipe_id: string | null
+          component_type: Database["public"]["Enums"]["component_type"]
+          created_at: string
+          id: string
+          ingredient_id: string | null
+          loss_pct: number | null
+          quantity: number
+          recipe_id: string
+          step_order: number
+          unit: string
+        }
+        Insert: {
+          component_recipe_id?: string | null
+          component_type: Database["public"]["Enums"]["component_type"]
+          created_at?: string
+          id?: string
+          ingredient_id?: string | null
+          loss_pct?: number | null
+          quantity: number
+          recipe_id: string
+          step_order: number
+          unit: string
+        }
+        Update: {
+          component_recipe_id?: string | null
+          component_type?: Database["public"]["Enums"]["component_type"]
+          created_at?: string
+          id?: string
+          ingredient_id?: string | null
+          loss_pct?: number | null
+          quantity?: number
+          recipe_id?: string
+          step_order?: number
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_lines_component_recipe_id_fkey"
+            columns: ["component_recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_lines_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipe_lines_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipes: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          organization_id: string
+          process_description: string | null
+          servings: number | null
+          status: Database["public"]["Enums"]["recipe_status"] | null
+          target_batch_qty: number
+          target_batch_unit: string
+          type: Database["public"]["Enums"]["recipe_type"]
+          updated_at: string
+          version: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          organization_id: string
+          process_description?: string | null
+          servings?: number | null
+          status?: Database["public"]["Enums"]["recipe_status"] | null
+          target_batch_qty: number
+          target_batch_unit: string
+          type: Database["public"]["Enums"]["recipe_type"]
+          updated_at?: string
+          version?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          organization_id?: string
+          process_description?: string | null
+          servings?: number | null
+          status?: Database["public"]["Enums"]["recipe_status"] | null
+          target_batch_qty?: number
+          target_batch_unit?: string
+          type?: Database["public"]["Enums"]["recipe_type"]
+          updated_at?: string
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_prices: {
+        Row: {
+          created_at: string
+          discount_pct: number | null
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          is_active: boolean | null
+          pack_description: string
+          pack_net_qty: number
+          pack_price: number
+          pack_unit: string
+          supplier_product_id: string
+          tax_pct: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discount_pct?: number | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          pack_description: string
+          pack_net_qty: number
+          pack_price: number
+          pack_unit: string
+          supplier_product_id: string
+          tax_pct?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discount_pct?: number | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean | null
+          pack_description?: string
+          pack_net_qty?: number
+          pack_price?: number
+          pack_unit?: string
+          supplier_product_id?: string
+          tax_pct?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_prices_supplier_product_id_fkey"
+            columns: ["supplier_product_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       supplier_products: {
         Row: {
@@ -179,7 +399,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      component_type: "ingredient" | "recipe"
+      recipe_status: "draft" | "active" | "archived"
+      recipe_type: "PREP" | "PLATE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -306,6 +528,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      component_type: ["ingredient", "recipe"],
+      recipe_status: ["draft", "active", "archived"],
+      recipe_type: ["PREP", "PLATE"],
+    },
   },
 } as const

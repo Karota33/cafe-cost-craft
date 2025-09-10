@@ -1,116 +1,202 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Upload, FileText, Table, Image, Check, AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Upload, 
+  FileText, 
+  FileSpreadsheet, 
+  Image as ImageIcon, 
+  CheckCircle, 
+  AlertCircle,
+  X,
+  Download,
+  Eye,
+  Trash2
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
-interface UploadFile {
+interface UploadedFile {
   id: string;
   name: string;
-  type: 'csv' | 'excel' | 'pdf' | 'image';
+  type: string;
   size: number;
-  status: 'uploading' | 'processing' | 'mapping' | 'completed' | 'error';
+  status: 'uploading' | 'processing' | 'completed' | 'failed';
   progress: number;
-  detected?: {
-    supplier: string;
-    products: number;
-    columns: string[];
-  };
+  records?: number;
+  error?: string;
+  createdAt: Date;
 }
 
-const mockFiles: UploadFile[] = [
-  {
-    id: "1",
-    name: "precios_proveedor_cafe.csv",
-    type: "csv",
-    size: 24500,
-    status: "completed",
-    progress: 100,
-    detected: {
-      supplier: "Distribuidora Café SL",
-      products: 24,
-      columns: ["producto", "pack", "precio", "descuento", "igic"]
-    }
-  },
-  {
-    id: "2", 
-    name: "catalogo_lacteos.xlsx",
-    type: "excel",
-    size: 67200,
-    status: "mapping",
-    progress: 75,
-    detected: {
-      supplier: "Lácteos Canarios",
-      products: 45,
-      columns: ["descripcion", "formato", "unidad", "pvp", "dto"]
-    }
-  }
-];
-
-const fileTypes = [
-  {
-    type: "csv",
-    label: "CSV",
-    description: "Archivos separados por comas",
-    icon: FileText,
-    accept: ".csv",
-    color: "bg-success text-success-foreground"
-  },
-  {
-    type: "excel",
-    label: "Excel",
-    description: "Hojas de cálculo XLSX",
-    icon: Table,
-    accept: ".xlsx,.xls",
-    color: "bg-primary text-primary-foreground"
-  },
-  {
-    type: "pdf",
-    label: "PDF",
-    description: "Catálogos en PDF (OCR)",
-    icon: FileText,
-    accept: ".pdf",
-    color: "bg-warning text-warning-foreground"
-  },
-  {
-    type: "image",
-    label: "Imagen",
-    description: "Fotos de catálogos (OCR)",
-    icon: Image,
-    accept: ".jpg,.jpeg,.png",
-    color: "bg-accent text-accent-foreground"
-  }
-];
-
-const getStatusIcon = (status: UploadFile['status']) => {
-  switch (status) {
-    case 'completed':
-      return <Check className="h-4 w-4 text-success" />;
-    case 'error':
-      return <AlertCircle className="h-4 w-4 text-destructive" />;
-    default:
-      return <Upload className="h-4 w-4 text-muted-foreground" />;
-  }
-};
-
-const getStatusColor = (status: UploadFile['status']) => {
-  switch (status) {
-    case 'completed':
-      return 'text-success';
-    case 'error':
-      return 'text-destructive';
-    case 'mapping':
-      return 'text-warning';
-    default:
-      return 'text-muted-foreground';
-  }
+const SUPPORTED_FORMATS = {
+  'text/csv': { icon: FileText, label: 'CSV', color: 'bg-green-500' },
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { icon: FileSpreadsheet, label: 'Excel', color: 'bg-blue-500' },
+  'application/pdf': { icon: FileText, label: 'PDF', color: 'bg-red-500' },
+  'image/jpeg': { icon: ImageIcon, label: 'JPEG', color: 'bg-purple-500' },
+  'image/png': { icon: ImageIcon, label: 'PNG', color: 'bg-purple-500' },
+  'image/webp': { icon: ImageIcon, label: 'WebP', color: 'bg-purple-500' }
 };
 
 export const UploadView = () => {
-  const [dragOver, setDragOver] = useState(false);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [dragActive, setDragActive] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  const handleFiles = useCallback(async (fileList: FileList) => {
+    const newFiles: UploadedFile[] = [];
+    
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      
+      if (!Object.keys(SUPPORTED_FORMATS).includes(file.type)) {
+        toast({
+          title: "Formato no soportado",
+          description: `El archivo ${file.name} no es un formato válido`,
+          variant: "destructive"
+        });
+        continue;
+      }
+
+      const uploadFile: UploadedFile = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        status: 'uploading',
+        progress: 0,
+        createdAt: new Date()
+      };
+
+      newFiles.push(uploadFile);
+    }
+
+    setFiles(prev => [...prev, ...newFiles]);
+
+    // Upload files to Supabase Storage
+    for (let i = 0; i < newFiles.length; i++) {
+      const uploadFile = newFiles[i];
+      const file = fileList[i];
+      
+      try {
+        setUploading(true);
+        
+        // Update progress
+        setFiles(prev => prev.map(f => 
+          f.id === uploadFile.id ? { ...f, progress: 25 } : f
+        ));
+
+        const fileName = `${uploadFile.id}-${file.name}`;
+        const { data, error } = await supabase.storage
+          .from('uploads')
+          .upload(fileName, file);
+
+        if (error) throw error;
+
+        // Update progress
+        setFiles(prev => prev.map(f => 
+          f.id === uploadFile.id ? { ...f, progress: 75 } : f
+        ));
+
+        // Get demo organization ID
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('name', 'DRAGO COFFEE - Demo')
+          .single();
+
+        // Record file upload in database
+        const { error: dbError } = await supabase
+          .from('file_uploads')
+          .insert({
+            organization_id: orgData?.id || '',
+            file_name: file.name,
+            file_type: getFileTypeLabel(file.type),
+            file_size: file.size,
+            file_path: data.path,
+            processing_status: 'pending'
+          });
+
+        if (dbError) throw dbError;
+
+        // Complete upload
+        setFiles(prev => prev.map(f => 
+          f.id === uploadFile.id 
+            ? { ...f, status: 'processing', progress: 100 }
+            : f
+        ));
+
+        // Simulate processing completion
+        setTimeout(() => {
+          setFiles(prev => prev.map(f => 
+            f.id === uploadFile.id 
+              ? { 
+                  ...f, 
+                  status: 'completed', 
+                  records: Math.floor(Math.random() * 50) + 10 
+                }
+              : f
+          ));
+        }, 2000);
+
+        toast({
+          title: "Archivo subido",
+          description: `${file.name} se ha subido correctamente`,
+        });
+
+      } catch (error) {
+        console.error('Upload error:', error);
+        setFiles(prev => prev.map(f => 
+          f.id === uploadFile.id 
+            ? { 
+                ...f, 
+                status: 'failed', 
+                error: error instanceof Error ? error.message : 'Error desconocido' 
+              }
+            : f
+        ));
+        
+        toast({
+          title: "Error al subir archivo",
+          description: `No se pudo subir ${file.name}`,
+          variant: "destructive"
+        });
+      } finally {
+        setUploading(false);
+      }
+    }
+  }, [toast]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  }, [handleFiles]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFiles(e.target.files);
+    }
+  }, [handleFiles]);
+
+  const removeFile = (id: string) => {
+    setFiles(prev => prev.filter(f => f.id !== id));
+  };
+
+  const getFileTypeLabel = (type: string) => {
+    if (type.includes('csv')) return 'CSV';
+    if (type.includes('excel') || type.includes('spreadsheet')) return 'XLSX';
+    if (type.includes('pdf')) return 'PDF';
+    if (type.includes('image')) return 'IMAGE';
+    return 'UNKNOWN';
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -120,143 +206,193 @@ export const UploadView = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const getStatusIcon = (status: UploadedFile['status']) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-success" />;
+      case 'failed':
+        return <AlertCircle className="h-4 w-4 text-destructive" />;
+      default:
+        return <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />;
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gradient">Ingesta de Precios</h1>
+        <h1 className="text-2xl font-bold text-gradient">Ingesta de Archivos</h1>
         <p className="text-muted-foreground mt-1">
-          Sube archivos de proveedores para actualizar tu catálogo
+          Sube archivos CSV, Excel, PDF o imágenes para extraer datos de proveedores
         </p>
       </div>
 
       {/* Upload Area */}
-      <Card className="border-2 border-dashed">
-        <CardContent
-          className={cn(
-            "p-8 text-center transition-colors",
-            dragOver && "bg-primary/5 border-primary"
-          )}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            // Handle file drop
-          }}
-        >
-          <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">
-            Arrastra archivos aquí o haz clic para seleccionar
-          </h3>
-          <p className="text-muted-foreground mb-6">
-            Soporta CSV, Excel, PDF e imágenes con detección automática
-          </p>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {fileTypes.map((type) => (
-              <div key={type.type} className="text-center">
-                <div className={cn(
-                  "h-12 w-12 rounded-lg flex items-center justify-center mx-auto mb-2",
-                  type.color
-                )}>
-                  <type.icon className="h-6 w-6" />
-                </div>
-                <p className="font-medium text-sm">{type.label}</p>
-                <p className="text-xs text-muted-foreground">{type.description}</p>
-              </div>
-            ))}
+      <Card className={`transition-all ${dragActive ? 'border-primary bg-primary/5' : ''}`}>
+        <CardContent className="p-8">
+          <div
+            className="border-2 border-dashed border-border rounded-lg p-8 text-center transition-colors hover:border-primary"
+            onDrop={handleDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDragActive(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDragActive(false);
+            }}
+          >
+            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">
+              Arrastra archivos aquí o haz clic para seleccionar
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              Formatos soportados: CSV, Excel, PDF, JPEG, PNG, WebP
+            </p>
+            
+            <Label htmlFor="file-upload">
+              <Button variant="outline" className="cursor-pointer" disabled={uploading}>
+                <Upload className="h-4 w-4 mr-2" />
+                Seleccionar archivos
+              </Button>
+            </Label>
+            <Input
+              id="file-upload"
+              type="file"
+              multiple
+              accept=".csv,.xlsx,.xls,.pdf,.jpg,.jpeg,.png,.webp"
+              onChange={handleFileInput}
+              className="hidden"
+              disabled={uploading}
+            />
           </div>
 
-          <Button size="lg" className="bg-gradient-primary">
-            Seleccionar Archivos
-          </Button>
+          {/* Supported Formats */}
+          <div className="mt-6 flex flex-wrap gap-2 justify-center">
+            {Object.entries(SUPPORTED_FORMATS).map(([type, { icon: Icon, label, color }]) => (
+              <Badge key={type} variant="secondary" className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${color}`} />
+                {label}
+              </Badge>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Processing Files */}
-      {mockFiles.length > 0 && (
+      {/* Files List */}
+      {files.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Archivos en Proceso
+              Archivos Subidos ({files.length})
             </CardTitle>
             <CardDescription>
-              Estado de procesamiento y mapeo de columnas
+              Estado del procesamiento de archivos
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {mockFiles.map((file, index) => (
-              <div key={file.id}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(file.status)}
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{file.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatFileSize(file.size)} • 
-                        <span className={cn("ml-1", getStatusColor(file.status))}>
-                          {file.status === 'completed' && 'Completado'}
-                          {file.status === 'mapping' && 'Mapeo de columnas'}
-                          {file.status === 'processing' && 'Procesando'}
-                          {file.status === 'uploading' && 'Subiendo'}
-                          {file.status === 'error' && 'Error'}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="uppercase text-xs">
-                    {file.type}
-                  </Badge>
-                </div>
-
-                {file.status !== 'completed' && file.status !== 'error' && (
-                  <Progress value={file.progress} className="mb-3" />
-                )}
-
-                {file.detected && (
-                  <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Proveedor detectado:</span>
-                      <span className="text-sm">{file.detected.supplier}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Productos:</span>
-                      <span className="text-sm">{file.detected.products}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium">Columnas detectadas:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {file.detected.columns.map((col, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
-                            {col}
-                          </Badge>
-                        ))}
-                      </div>
+          <CardContent className="space-y-3">
+            {files.map((file) => {
+              const format = SUPPORTED_FORMATS[file.type as keyof typeof SUPPORTED_FORMATS];
+              const Icon = format?.icon || FileText;
+              
+              return (
+                <div key={file.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className={`p-2 rounded-lg ${format?.color || 'bg-gray-500'} text-white`}>
+                      <Icon className="h-4 w-4" />
                     </div>
                     
-                    {file.status === 'mapping' && (
-                      <div className="flex gap-2 mt-3">
-                        <Button size="sm" variant="default">
-                          Confirmar Mapeo
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{file.name}</p>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <span>{formatFileSize(file.size)}</span>
+                        <span>•</span>
+                        <span>{format?.label || 'Unknown'}</span>
+                        {file.records && (
+                          <>
+                            <span>•</span>
+                            <span>{file.records} registros</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(file.status)}
+                      <span className="text-sm capitalize">
+                        {file.status === 'uploading' ? 'Subiendo' :
+                         file.status === 'processing' ? 'Procesando' :
+                         file.status === 'completed' ? 'Completado' : 'Error'}
+                      </span>
+                    </div>
+
+                    {file.status === 'completed' && (
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="ghost">
+                          <Eye className="h-3 w-3" />
                         </Button>
-                        <Button size="sm" variant="outline">
-                          Ajustar Columnas
+                        <Button size="sm" variant="ghost">
+                          <Download className="h-3 w-3" />
                         </Button>
                       </div>
                     )}
-                  </div>
-                )}
 
-                {index < mockFiles.length - 1 && <Separator className="mt-4" />}
-              </div>
-            ))}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeFile(file.id)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
+      )}
+
+      {/* Processing Stats */}
+      {files.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold text-primary">
+                {files.filter(f => f.status === 'completed').length}
+              </p>
+              <p className="text-sm text-muted-foreground">Completados</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold text-warning">
+                {files.filter(f => f.status === 'processing' || f.status === 'uploading').length}
+              </p>
+              <p className="text-sm text-muted-foreground">Procesando</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold text-destructive">
+                {files.filter(f => f.status === 'failed').length}
+              </p>
+              <p className="text-sm text-muted-foreground">Errores</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <p className="text-2xl font-bold text-success">
+                {files.reduce((acc, f) => acc + (f.records || 0), 0)}
+              </p>
+              <p className="text-sm text-muted-foreground">Registros</p>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

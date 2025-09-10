@@ -5,6 +5,7 @@ import { UploadView } from "@/components/Views/UploadView";
 import { CatalogView } from "@/components/Views/CatalogView";
 import { ComparisonView } from "@/components/Views/ComparisonView";
 import { SuppliersView } from "@/components/Views/SuppliersView";
+import { RecipesView } from "@/components/Views/RecipesView";
 
 const Index = () => {
   const [activeView, setActiveView] = useState("upload");
@@ -20,12 +21,7 @@ const Index = () => {
       case "suppliers":
         return <SuppliersView />;
       case "recipes":
-        return (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold text-gradient mb-4">Recetas y Escandallos</h2>
-            <p className="text-muted-foreground">Módulo de recetas PREP/PLATE en desarrollo</p>
-          </div>
-        );
+        return <RecipesView />;
       case "purchases":
         return (
           <div className="text-center py-12">
