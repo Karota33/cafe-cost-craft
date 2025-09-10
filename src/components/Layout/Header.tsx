@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Coffee, Menu, Settings, User } from "lucide-react";
+import { Coffee, Menu, Settings, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
   className?: string;
@@ -10,6 +11,7 @@ interface HeaderProps {
 
 export const Header = ({ className }: HeaderProps) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const { signOut } = useAuth();
 
   return (
     <Card className={cn(
@@ -47,6 +49,14 @@ export const Header = ({ className }: HeaderProps) => {
             <Button 
               variant="ghost" 
               size="sm" 
+              className="hidden sm:flex text-destructive hover:text-destructive"
+              onClick={() => signOut()}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
               className="sm:hidden"
               onClick={() => setShowMobileMenu(!showMobileMenu)}
             >
@@ -66,6 +76,15 @@ export const Header = ({ className }: HeaderProps) => {
               <Button variant="ghost" size="sm" className="justify-start">
                 <User className="h-4 w-4 mr-2" />
                 Perfil
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="justify-start text-destructive hover:text-destructive"
+                onClick={() => signOut()}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Cerrar Sesión
               </Button>
             </div>
           </div>
