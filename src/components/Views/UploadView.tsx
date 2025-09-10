@@ -116,7 +116,7 @@ export const UploadView = () => {
         ));
 
         // Record file upload in database
-        const { error: dbError } = await supabase
+        const { data: fileUploadData, error: dbError } = await supabase
           .from('file_uploads')
           .insert({
             organization_id: currentOrganization.organization_id,
@@ -125,7 +125,9 @@ export const UploadView = () => {
             file_size: file.size,
             file_path: data.path,
             processing_status: 'pending'
-          });
+          })
+          .select()
+          .single();
 
         if (dbError) {
           console.error('Database error:', dbError);
@@ -139,18 +141,58 @@ export const UploadView = () => {
             : f
         ));
 
-        // Simulate processing completion
-        setTimeout(() => {
+        // Start background processing using Edge Function
+        try {
+          const { data: processResult, error: processError } = await supabase.functions
+            .invoke('process-file', {
+              body: { 
+                fileId: fileUploadData.id, 
+                organizationId: currentOrganization.organization_id 
+              }
+            });
+
+          if (processError) {
+            console.error('Processing error:', processError);
+            setFiles(prev => prev.map(f => 
+              f.id === uploadFile.id 
+                ? { 
+                    ...f, 
+                    status: 'failed',
+                    error: 'Error en procesamiento: ' + processError.message
+                  }
+                : f
+            ));
+            return;
+          }
+
+          // Mark as completed with actual processed count
           setFiles(prev => prev.map(f => 
             f.id === uploadFile.id 
               ? { 
                   ...f, 
                   status: 'completed', 
-                  records: Math.floor(Math.random() * 50) + 10 
+                  records: processResult?.processed_count || 0
                 }
               : f
           ));
-        }, 2000);
+
+          toast({
+            title: "Archivo procesado",
+            description: `${file.name}: ${processResult?.processed_count || 0} ingredientes extraídos`,
+          });
+
+        } catch (processError) {
+          console.error('Processing failed:', processError);
+          setFiles(prev => prev.map(f => 
+            f.id === uploadFile.id 
+              ? { 
+                  ...f, 
+                  status: 'failed',
+                  error: 'Error en procesamiento'
+                }
+              : f
+          ));
+        }
 
         toast({
           title: "Archivo subido",

@@ -56,53 +56,84 @@ export const CatalogView = () => {
   const { currentOrganization } = useAuth();
   const { toast } = useToast();
 
+  // Load real data from database
   useEffect(() => {
-    fetchIngredients();
-  }, []);
+    if (!currentOrganization) return;
+    
+    loadIngredients();
+  }, [currentOrganization]);
 
-  const fetchIngredients = async () => {
+  const loadIngredients = async () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      const { data: ingredientsData, error } = await supabase
         .from('ingredients')
         .select(`
           *,
-          supplier_products(
-            count,
-            suppliers(name)
+          supplier_products (
+            id,
+            supplier:suppliers (
+              id,
+              name
+            ),
+            supplier_prices (
+              pack_price,
+              pack_net_qty,
+              pack_unit,
+              is_active,
+              effective_from,
+              effective_to
+            )
           )
         `)
+        .eq('organization_id', currentOrganization.organization_id)
         .order('name');
 
-      if (error) {
-        console.error('Error fetching ingredients:', error);
-        return;
-      }
+      if (error) throw error;
 
-      // Transform data to match our interface with real data
-      const transformedData: Ingredient[] = (data || []).map(ingredient => ({
-        id: ingredient.id,
-        name: ingredient.name,
-        category: ingredient.category || ingredient.family || 'Sin categoría',
-        family: ingredient.family || 'General',
-        unit: ingredient.unit_base || 'kg',
-        avgPrice: ingredient.avg_price || (Math.random() * 20 + 5),
-        bestPrice: ingredient.avg_price ? ingredient.avg_price * 0.85 : (Math.random() * 15 + 3),
-        priceChange: (Math.random() - 0.5) * 15, // TODO: Calculate real price change
-        suppliers: ingredient.supplier_count || Math.floor(Math.random() * 5) + 1,
-        lastUpdate: ingredient.last_price_update 
-          ? formatRelativeTime(new Date(ingredient.last_price_update))
-          : "Hace " + Math.floor(Math.random() * 24) + " horas",
-        allergens: Array.isArray(ingredient.allergens) 
-          ? ingredient.allergens.filter((item): item is string => typeof item === 'string')
-          : [],
-        area: (ingredient.area as 'kitchen' | 'dining' | 'both') || 'both'
-      }));
+      // Transform data to match our interface
+      const transformedIngredients: Ingredient[] = (ingredientsData || []).map(ingredient => {
+        const activePrices = ingredient.supplier_products
+          ?.flatMap(sp => sp.supplier_prices || [])
+          .filter(price => price.is_active && (!price.effective_to || new Date(price.effective_to) > new Date()))
+          || [];
 
-      setIngredients(transformedData);
+        const prices = activePrices.map(price => price.pack_price / price.pack_net_qty);
+        const avgPrice = prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
+        const bestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+        
+        const uniqueSuppliers = new Set(
+          ingredient.supplier_products
+            ?.map(sp => sp.supplier?.id)
+            .filter(Boolean) || []
+        );
+
+        return {
+          id: ingredient.id,
+          name: ingredient.name,
+          category: ingredient.category || 'Sin categoría',
+          family: ingredient.family || 'Sin familia',
+          unit: ingredient.unit_base || 'kg',
+          avgPrice,
+          bestPrice,
+          priceChange: Math.random() * 20 - 10, // TODO: Calculate real price change
+          suppliers: uniqueSuppliers.size,
+          lastUpdate: ingredient.updated_at,
+          allergens: Array.isArray(ingredient.allergens) ? ingredient.allergens as string[] : [],
+          area: ingredient.area as 'kitchen' | 'dining' | 'both'
+        };
+      });
+
+      setIngredients(transformedIngredients);
+      
     } catch (error) {
-      console.error('Error fetching ingredients:', error);
+      console.error('Error loading ingredients:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los ingredientes",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -118,6 +149,8 @@ export const CatalogView = () => {
     if (diffHours > 0) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
     return 'Hace menos de 1 hora';
   };
+
+
 
   const filteredIngredients = ingredients.filter(ingredient => {
     // Search term filter
@@ -376,7 +409,21 @@ export const CatalogView = () => {
       </div>
 
       {/* Empty State */}
-      {filteredIngredients.length === 0 && (
+      {!loading && filteredIngredients.length === 0 && ingredients.length === 0 && (
+        <Card className="p-12 text-center">
+          <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+          <h3 className="text-lg font-semibold mb-2">No hay ingredientes en el catálogo</h3>
+          <p className="text-muted-foreground mb-4">
+            Comienza subiendo archivos de proveedores para crear tu catálogo de ingredientes
+          </p>
+          <Button variant="outline" onClick={() => window.location.hash = '#upload'}>
+            Subir archivos
+          </Button>
+        </Card>
+      )}
+      
+      {/* No Results State */}
+      {!loading && filteredIngredients.length === 0 && ingredients.length > 0 && (
         <Card className="p-12 text-center">
           <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
           <h3 className="text-lg font-semibold mb-2">No se encontraron ingredientes</h3>
