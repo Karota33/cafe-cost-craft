@@ -37,6 +37,7 @@ interface Ingredient {
 
 export const CatalogView = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [suppliers, setSuppliers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -92,7 +93,8 @@ export const CatalogView = () => {
 
       if (error) throw error;
 
-      // Transform data to match our interface
+      // Transform data to match our interface and extract suppliers
+      const allSuppliers = new Set<string>();
       const transformedIngredients: Ingredient[] = (ingredientsData || []).map(ingredient => {
         const activePrices = ingredient.supplier_products
           ?.flatMap(sp => sp.supplier_prices || [])
@@ -105,9 +107,12 @@ export const CatalogView = () => {
         
         const uniqueSuppliers = new Set(
           ingredient.supplier_products
-            ?.map(sp => sp.supplier?.id)
+            ?.map(sp => sp.supplier?.name)
             .filter(Boolean) || []
         );
+
+        // Add suppliers to global set
+        uniqueSuppliers.forEach(name => allSuppliers.add(name));
 
         return {
           id: ingredient.id,
@@ -126,6 +131,7 @@ export const CatalogView = () => {
       });
 
       setIngredients(transformedIngredients);
+      setSuppliers(Array.from(allSuppliers));
       
     } catch (error) {
       console.error('Error loading ingredients:', error);

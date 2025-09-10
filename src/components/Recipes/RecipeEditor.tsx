@@ -174,7 +174,9 @@ export const RecipeEditor = ({ recipeId, onSave, onCancel }: RecipeEditorProps) 
         instructions: recipe.instructions || '',
         process_description: recipe.process_description || '',
         chef_notes: recipe.chef_notes || '',
-        allergen_info: Array.isArray(recipe.allergen_info) ? recipe.allergen_info : [],
+        allergen_info: Array.isArray(recipe.allergen_info) 
+          ? recipe.allergen_info.filter((item): item is string => typeof item === 'string')
+          : [],
         target_price: recipe.target_price,
         margin_percentage: recipe.margin_percentage
       });

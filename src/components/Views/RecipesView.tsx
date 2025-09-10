@@ -146,7 +146,9 @@ export const RecipesView = () => {
         cooking_time_minutes: recipe.cooking_time_minutes,
         instructions: recipe.instructions || '',
         chef_notes: recipe.chef_notes,
-        allergen_info: Array.isArray(recipe.allergen_info) ? recipe.allergen_info : [],
+        allergen_info: Array.isArray(recipe.allergen_info) 
+          ? recipe.allergen_info.filter((item): item is string => typeof item === 'string')
+          : [],
         ingredients,
         costs: costs || {
           ingredient_cost: 0,
