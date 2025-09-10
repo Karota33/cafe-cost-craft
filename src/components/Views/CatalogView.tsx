@@ -32,61 +32,60 @@ interface Ingredient {
   area: 'kitchen' | 'dining' | 'both';
 }
 
-// Use real data instead of mock data
-const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-const [loading, setLoading] = useState(true);
-
-useEffect(() => {
-  fetchIngredients();
-}, []);
-
-const fetchIngredients = async () => {
-  try {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('ingredients')
-      .select('*')
-      .order('name');
-
-    if (error) {
-      console.error('Error fetching ingredients:', error);
-      return;
-    }
-
-    // Transform data to match our interface
-    const transformedData: Ingredient[] = (data || []).map(ingredient => ({
-      id: ingredient.id,
-      name: ingredient.name,
-      category: ingredient.family || 'Sin categoría',
-      family: ingredient.subfamily || 'General',
-      unit: 'kg', // Default unit
-      avgPrice: Math.random() * 20 + 5, // Mock pricing
-      bestPrice: Math.random() * 15 + 3,
-      priceChange: (Math.random() - 0.5) * 10,
-      suppliers: Math.floor(Math.random() * 5) + 1,
-      lastUpdate: "Hace " + Math.floor(Math.random() * 24) + " horas",
-      allergens: Array.isArray(ingredient.allergens) 
-        ? ingredient.allergens.filter((item): item is string => typeof item === 'string')
-        : [],
-      area: 'both' as const
-    }));
-
-    setIngredients(transformedData);
-  } catch (error) {
-    console.error('Error fetching ingredients:', error);
-  } finally {
-    setLoading(false);
-  }
-};
-
 const categories = ["Todas", "Bebidas", "Lácteos", "Básicos"];
 const areas = ["Todas", "Cocina", "Sala", "Mixto"];
 
 export const CatalogView = () => {
+  // Use real data instead of mock data
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todas");
   const [selectedArea, setSelectedArea] = useState("Todas");
   const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchIngredients();
+  }, []);
+
+  const fetchIngredients = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('ingredients')
+        .select('*')
+        .order('name');
+
+      if (error) {
+        console.error('Error fetching ingredients:', error);
+        return;
+      }
+
+      // Transform data to match our interface
+      const transformedData: Ingredient[] = (data || []).map(ingredient => ({
+        id: ingredient.id,
+        name: ingredient.name,
+        category: ingredient.family || 'Sin categoría',
+        family: ingredient.subfamily || 'General',
+        unit: 'kg', // Default unit
+        avgPrice: Math.random() * 20 + 5, // Mock pricing
+        bestPrice: Math.random() * 15 + 3,
+        priceChange: (Math.random() - 0.5) * 10,
+        suppliers: Math.floor(Math.random() * 5) + 1,
+        lastUpdate: "Hace " + Math.floor(Math.random() * 24) + " horas",
+        allergens: Array.isArray(ingredient.allergens) 
+          ? ingredient.allergens.filter((item): item is string => typeof item === 'string')
+          : [],
+        area: 'both' as const
+      }));
+
+      setIngredients(transformedData);
+    } catch (error) {
+      console.error('Error fetching ingredients:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredIngredients = ingredients.filter(ingredient => {
     const matchesSearch = ingredient.name.toLowerCase().includes(searchTerm.toLowerCase());
