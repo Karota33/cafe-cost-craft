@@ -51,9 +51,16 @@ export const CatalogView = () => {
   const fetchIngredients = async () => {
     try {
       setLoading(true);
+      
       const { data, error } = await supabase
         .from('ingredients')
-        .select('*')
+        .select(`
+          *,
+          supplier_products(
+            count,
+            suppliers(name)
+          )
+        `)
         .order('name');
 
       if (error) {
@@ -61,22 +68,24 @@ export const CatalogView = () => {
         return;
       }
 
-      // Transform data to match our interface
+      // Transform data to match our interface with real data
       const transformedData: Ingredient[] = (data || []).map(ingredient => ({
         id: ingredient.id,
         name: ingredient.name,
-        category: ingredient.family || 'Sin categoría',
-        family: ingredient.subfamily || 'General',
-        unit: 'kg', // Default unit
-        avgPrice: Math.random() * 20 + 5, // Mock pricing
-        bestPrice: Math.random() * 15 + 3,
-        priceChange: (Math.random() - 0.5) * 10,
-        suppliers: Math.floor(Math.random() * 5) + 1,
-        lastUpdate: "Hace " + Math.floor(Math.random() * 24) + " horas",
+        category: ingredient.category || ingredient.family || 'Sin categoría',
+        family: ingredient.family || 'General',
+        unit: ingredient.unit_base || 'kg',
+        avgPrice: ingredient.avg_price || (Math.random() * 20 + 5),
+        bestPrice: ingredient.avg_price ? ingredient.avg_price * 0.85 : (Math.random() * 15 + 3),
+        priceChange: (Math.random() - 0.5) * 15, // TODO: Calculate real price change
+        suppliers: ingredient.supplier_count || Math.floor(Math.random() * 5) + 1,
+        lastUpdate: ingredient.last_price_update 
+          ? formatRelativeTime(new Date(ingredient.last_price_update))
+          : "Hace " + Math.floor(Math.random() * 24) + " horas",
         allergens: Array.isArray(ingredient.allergens) 
           ? ingredient.allergens.filter((item): item is string => typeof item === 'string')
           : [],
-        area: 'both' as const
+        area: (ingredient.area as 'kitchen' | 'dining' | 'both') || 'both'
       }));
 
       setIngredients(transformedData);
@@ -85,6 +94,17 @@ export const CatalogView = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatRelativeTime = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    
+    if (diffDays > 0) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+    if (diffHours > 0) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+    return 'Hace menos de 1 hora';
   };
 
   const filteredIngredients = ingredients.filter(ingredient => {

@@ -140,11 +140,14 @@ export type Database = {
         Row: {
           created_at: string
           error_message: string | null
+          extracted_records: number | null
+          failed_records: number | null
           file_name: string
           file_path: string
           file_size: number
           file_type: string
           id: string
+          ocr_processing_id: string | null
           organization_id: string
           processed_at: string | null
           processed_records: number | null
@@ -153,11 +156,14 @@ export type Database = {
         Insert: {
           created_at?: string
           error_message?: string | null
+          extracted_records?: number | null
+          failed_records?: number | null
           file_name: string
           file_path: string
           file_size: number
           file_type: string
           id?: string
+          ocr_processing_id?: string | null
           organization_id: string
           processed_at?: string | null
           processed_records?: number | null
@@ -166,17 +172,27 @@ export type Database = {
         Update: {
           created_at?: string
           error_message?: string | null
+          extracted_records?: number | null
+          failed_records?: number | null
           file_name?: string
           file_path?: string
           file_size?: number
           file_type?: string
           id?: string
+          ocr_processing_id?: string | null
           organization_id?: string
           processed_at?: string | null
           processed_records?: number | null
           processing_status?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "file_uploads_ocr_processing_id_fkey"
+            columns: ["ocr_processing_id"]
+            isOneToOne: false
+            referencedRelation: "ocr_processing"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "file_uploads_organization_id_fkey"
             columns: ["organization_id"]
@@ -189,34 +205,52 @@ export type Database = {
       ingredients: {
         Row: {
           allergens: Json | null
+          area: string | null
+          avg_price: number | null
+          category: string | null
           created_at: string
           family: string | null
           id: string
+          last_price_update: string | null
           name: string
           organization_id: string
           subfamily: string | null
+          supplier_count: number | null
+          unit_base: string | null
           updated_at: string
           yield_rate: number | null
         }
         Insert: {
           allergens?: Json | null
+          area?: string | null
+          avg_price?: number | null
+          category?: string | null
           created_at?: string
           family?: string | null
           id?: string
+          last_price_update?: string | null
           name: string
           organization_id: string
           subfamily?: string | null
+          supplier_count?: number | null
+          unit_base?: string | null
           updated_at?: string
           yield_rate?: number | null
         }
         Update: {
           allergens?: Json | null
+          area?: string | null
+          avg_price?: number | null
+          category?: string | null
           created_at?: string
           family?: string | null
           id?: string
+          last_price_update?: string | null
           name?: string
           organization_id?: string
           subfamily?: string | null
+          supplier_count?: number | null
+          unit_base?: string | null
           updated_at?: string
           yield_rate?: number | null
         }
@@ -288,6 +322,53 @@ export type Database = {
           },
         ]
       }
+      ocr_processing: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          extracted_data: Json | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          organization_id: string
+          processing_status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          extracted_data?: Json | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          organization_id: string
+          processing_status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          extracted_data?: Json | null
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          organization_id?: string
+          processing_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ocr_processing_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string
@@ -314,6 +395,57 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      price_alerts: {
+        Row: {
+          alert_type: string | null
+          created_at: string | null
+          id: string
+          ingredient_id: string
+          is_active: boolean | null
+          last_triggered: string | null
+          organization_id: string
+          threshold_percentage: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          alert_type?: string | null
+          created_at?: string | null
+          id?: string
+          ingredient_id: string
+          is_active?: boolean | null
+          last_triggered?: string | null
+          organization_id: string
+          threshold_percentage?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          alert_type?: string | null
+          created_at?: string | null
+          id?: string
+          ingredient_id?: string
+          is_active?: boolean | null
+          last_triggered?: string | null
+          organization_id?: string
+          threshold_percentage?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_alerts_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_alerts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
