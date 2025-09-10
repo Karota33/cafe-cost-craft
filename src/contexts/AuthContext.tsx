@@ -62,13 +62,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Use setTimeout to defer Supabase calls and prevent deadlock
         if (session?.user) {
-          await fetchProfile(session.user.id);
-          await fetchMemberships(session.user.id);
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+            fetchMemberships(session.user.id);
+          }, 0);
         } else {
           setProfile(null);
           setMemberships([]);
